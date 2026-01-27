@@ -114,6 +114,112 @@
         .start .btn {
             margin-top: 30px;
         }
+
+        .start .btn-secondary {
+            margin-top: 15px;
+            background: #f5f5f5;
+        }
+
+        .history-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #fff;
+            padding: 30px 40px;
+            border: 2px solid #000;
+            text-align: center;
+            display: none;
+            max-height: 80vh;
+            overflow-y: auto;
+            min-width: 300px;
+        }
+
+        .history-modal h2 {
+            margin-bottom: 20px;
+        }
+
+        .history-list {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+            font-family: monospace;
+        }
+
+        .history-item:first-child {
+            color: #d4af37;
+            font-weight: bold;
+        }
+
+        .history-rank {
+            width: 30px;
+        }
+
+        .history-time {
+            font-weight: bold;
+        }
+
+        .history-date {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .no-records {
+            color: #999;
+            margin: 20px 0;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+
+        .btn-danger {
+            border-color: #c00;
+            color: #c00;
+        }
+
+        .btn-danger:hover {
+            background: #c00;
+            color: #fff;
+        }
+
+        .new-record {
+            color: #d4af37;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .result-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn-x {
+            background: #000;
+            color: #fff;
+            border-color: #000;
+        }
+
+        .btn-x:hover {
+            background: #333;
+            border-color: #333;
+        }
     </style>
 </head>
 <body>
@@ -122,6 +228,8 @@
         <p>女の中に隠れた男を探せ！</p>
         <p>レベルが上がると数が増えるよ</p>
         <button class="btn" onclick="startGame()">START</button>
+        <br>
+        <button class="btn btn-secondary" onclick="showHistory()">過去の記録</button>
     </div>
 
     <div class="game" id="game" style="display:none;">
@@ -134,15 +242,29 @@
 
     <div class="overlay" id="overlay"></div>
     <div class="result" id="result">
+        <div id="newRecordMsg" class="new-record" style="display:none;">NEW RECORD!</div>
         <div>CLEAR!</div>
         <div class="result-time" id="finalTime"></div>
-        <button class="btn" onclick="location.reload()">Retry</button>
+        <div class="result-buttons">
+            <button class="btn btn-x" onclick="shareToX()">𝕏 で投稿</button>
+            <button class="btn" onclick="location.reload()">Retry</button>
+        </div>
+    </div>
+
+    <div class="history-modal" id="historyModal">
+        <h2>過去の記録</h2>
+        <div id="historyContent"></div>
+        <div class="btn-group">
+            <button class="btn btn-small" onclick="closeHistory()">閉じる</button>
+            <button class="btn btn-small btn-danger" onclick="clearHistory()">記録を消去</button>
+        </div>
     </div>
 
     <script>
         let level = 1;
         let startTime;
         let timerInterval;
+        const STORAGE_KEY = 'otoko_sagase_records';
 
         const levels = [
             { count: 2, cols: 2, size: 120 },
@@ -159,7 +281,7 @@
             { count: 49, cols: 7, size: 42 },
             { count: 56, cols: 8, size: 38 },
             { count: 64, cols: 8, size: 35 },
-            { count: 72, cols: 9, size: 32 }
+            { count: 216, cols: 18, size: 20 }
         ];
 
         function formatTime(ms) {
@@ -202,7 +324,14 @@
         function correct() {
             if (level >= 15) {
                 clearInterval(timerInterval);
-                document.getElementById('finalTime').textContent = formatTime(Date.now() - startTime);
+                const finalMs = Date.now() - startTime;
+                document.getElementById('finalTime').textContent = formatTime(finalMs);
+
+                const isNewRecord = saveRecord(finalMs);
+                if (isNewRecord) {
+                    document.getElementById('newRecordMsg').style.display = 'block';
+                }
+
                 document.getElementById('overlay').style.display = 'block';
                 document.getElementById('result').style.display = 'block';
             } else {
@@ -218,6 +347,78 @@
             startTime = Date.now();
             timerInterval = setInterval(updateTimer, 10);
             createGrid();
+        }
+
+        function getRecords() {
+            const data = localStorage.getItem(STORAGE_KEY);
+            return data ? JSON.parse(data) : [];
+        }
+
+        function saveRecord(ms) {
+            const records = getRecords();
+            const bestTime = records.length > 0 ? records[0].time : Infinity;
+
+            records.push({
+                time: ms,
+                date: new Date().toISOString()
+            });
+
+            records.sort((a, b) => a.time - b.time);
+
+            if (records.length > 10) {
+                records.length = 10;
+            }
+
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+
+            return ms < bestTime;
+        }
+
+        function showHistory() {
+            const records = getRecords();
+            const content = document.getElementById('historyContent');
+
+            if (records.length === 0) {
+                content.innerHTML = '<div class="no-records">まだ記録がありません</div>';
+            } else {
+                let html = '<div class="history-list">';
+                records.forEach((record, index) => {
+                    const date = new Date(record.date);
+                    const dateStr = `${date.getFullYear()}/${String(date.getMonth()+1).padStart(2,'0')}/${String(date.getDate()).padStart(2,'0')}`;
+                    html += `
+                        <div class="history-item">
+                            <span class="history-rank">${index + 1}.</span>
+                            <span class="history-time">${formatTime(record.time)}</span>
+                            <span class="history-date">${dateStr}</span>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                content.innerHTML = html;
+            }
+
+            document.getElementById('overlay').style.display = 'block';
+            document.getElementById('historyModal').style.display = 'block';
+        }
+
+        function closeHistory() {
+            document.getElementById('overlay').style.display = 'none';
+            document.getElementById('historyModal').style.display = 'none';
+        }
+
+        function clearHistory() {
+            if (confirm('すべての記録を消去しますか？')) {
+                localStorage.removeItem(STORAGE_KEY);
+                closeHistory();
+            }
+        }
+
+        function shareToX() {
+            const time = document.getElementById('finalTime').textContent;
+            const text = `男を探せ！をクリアしました！\nタイム: ${time}\n\n#男を探せ`;
+            const url = encodeURIComponent(window.location.href);
+            const tweetText = encodeURIComponent(text);
+            window.open(`https://twitter.com/intent/tweet?text=${tweetText}&url=${url}`, '_blank');
         }
     </script>
 </body>
