@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oを探せ！視力検査ゲーム</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: sans-serif;
+            background: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .info {
+            font-size: 24px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 40px;
+            color: #000;
+        }
+
+        #timer {
+            font-family: monospace;
+            font-weight: bold;
+        }
+
+        .grid {
+            display: grid;
+            gap: 0;
+            justify-content: center;
+            justify-items: center;
+            align-items: center;
+        }
+
+        .grid img {
+            cursor: pointer;
+            background: #fff;
+            object-fit: contain;
+            display: block;
+        }
+
+        .grid img:hover {
+            opacity: 0.6;
+        }
+
+        .wrong {
+            opacity: 0.3 !important;
+        }
+
+        .result {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #fff;
+            padding: 40px 60px;
+            border: 2px solid #000;
+            text-align: center;
+            display: none;
+            z-index: 10;
+        }
+
+        .result-time {
+            font-size: 48px;
+            font-family: monospace;
+            margin: 20px 0;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            font-size: 16px;
+            border: 2px solid #000;
+            cursor: pointer;
+            background: #fff;
+            color: #000;
+        }
+
+        .btn:hover {
+            background: #000;
+            color: #fff;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.8);
+            display: none;
+            z-index: 5;
+        }
+
+        .start {
+            text-align: center;
+            margin-top: 80px;
+        }
+
+        .start h1 {
+            font-size: 36px;
+            margin-bottom: 30px;
+        }
+
+        .start p {
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .start .btn {
+            margin-top: 30px;
+        }
+
+        .start .btn-secondary {
+            margin-top: 15px;
+            background: #f5f5f5;
+        }
+
+        .start .example {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+            margin: 20px 0;
+        }
+
+        .start .example img {
+            height: 60px;
+        }
+
+        .start .example .arrow {
+            font-size: 28px;
+            color: #c00;
+            margin-left: 10px;
+        }
+
+        .history-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #fff;
+            padding: 30px 40px;
+            border: 2px solid #000;
+            text-align: center;
+            display: none;
+            max-height: 80vh;
+            overflow-y: auto;
+            min-width: 300px;
+            z-index: 10;
+        }
+
+        .history-modal h2 {
+            margin-bottom: 20px;
+        }
+
+        .history-list {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+            font-family: monospace;
+        }
+
+        .history-item:first-child {
+            color: #d4af37;
+            font-weight: bold;
+        }
+
+        .history-rank {
+            width: 30px;
+        }
+
+        .history-time {
+            font-weight: bold;
+        }
+
+        .history-date {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .no-records {
+            color: #999;
+            margin: 20px 0;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+
+        .btn-danger {
+            border-color: #c00;
+            color: #c00;
+        }
+
+        .btn-danger:hover {
+            background: #c00;
+            color: #fff;
+        }
+
+        .new-record {
+            color: #d4af37;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .result-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn-x {
+            background: #000;
+            color: #fff;
+            border-color: #000;
+        }
+
+        .btn-x:hover {
+            background: #333;
+            border-color: #333;
+        }
+
+        .miss-count {
+            font-size: 16px;
+            color: #c00;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="start" id="start">
+        <h1>Oを探せ！</h1>
+        <p>Cの中に隠れた1つのOを探してね！</p>
+        <div class="example">
+            <img src="image_shiryoku/C_img.jpg" alt="C">
+            <img src="image_shiryoku/C_img.jpg" alt="C">
+            <img src="image_shiryoku/O_img.jpg" alt="O" style="border: 2px solid #c00; border-radius: 4px;">
+            <span class="arrow">&larr; これ！</span>
+        </div>
+        <p>レベルが上がるとマスが増えるよ</p>
+        <button class="btn" onclick="startGame()">START</button>
+        <br>
+        <button class="btn btn-secondary" onclick="showHistory()">過去の記録</button>
+    </div>
+
+    <div class="game" id="game" style="display:none;">
+        <div class="info">
+            <div>Level <span id="level">1</span>/10</div>
+            <div id="timer">00:00.00</div>
+            <div>Miss: <span id="missDisplay">0</span></div>
+        </div>
+        <div class="grid" id="grid"></div>
+    </div>
+
+    <div class="overlay" id="overlay"></div>
+    <div class="result" id="result">
+        <div id="newRecordMsg" class="new-record" style="display:none;">NEW RECORD!</div>
+        <div>CLEAR!</div>
+        <div class="result-time" id="finalTime"></div>
+        <div class="miss-count" id="finalMiss"></div>
+        <div class="result-buttons">
+            <button class="btn btn-x" onclick="shareToX()">&#x1D54F; で投稿</button>
+            <button class="btn" onclick="location.reload()">Retry</button>
+        </div>
+    </div>
+
+    <div class="history-modal" id="historyModal">
+        <h2>過去の記録</h2>
+        <div id="historyContent"></div>
+        <div class="btn-group">
+            <button class="btn btn-small" onclick="closeHistory()">閉じる</button>
+            <button class="btn btn-small btn-danger" onclick="clearHistory()">記録を消去</button>
+        </div>
+    </div>
+
+    <script>
+        let level = 1;
+        let startTime;
+        let timerInterval;
+        let missCount = 0;
+        const MAX_LEVEL = 10;
+        const STORAGE_KEY = 'shiryoku_records';
+
+        const levels = [
+            { cols: 2,  size: 120 },
+            { cols: 3,  size: 100 },
+            { cols: 4,  size: 80 },
+            { cols: 5,  size: 70 },
+            { cols: 6,  size: 60 },
+            { cols: 8,  size: 46 },
+            { cols: 9,  size: 40 },
+            { cols: 11, size: 34 },
+            { cols: 13, size: 28 },
+            { cols: 15, size: 24 }
+        ];
+
+        const rotations = [0, 90, 180, 270];
+
+        function formatTime(ms) {
+            const min = Math.floor(ms / 60000);
+            const sec = Math.floor((ms % 60000) / 1000);
+            const cs = Math.floor((ms % 1000) / 10);
+            return `${String(min).padStart(2,'0')}:${String(sec).padStart(2,'0')}.${String(cs).padStart(2,'0')}`;
+        }
+
+        function updateTimer() {
+            document.getElementById('timer').textContent = formatTime(Date.now() - startTime);
+        }
+
+        function createGrid() {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+            const cfg = levels[level - 1];
+            const count = cfg.cols * cfg.cols;
+            grid.style.gridTemplateColumns = `repeat(${cfg.cols}, ${cfg.size}px)`;
+
+            const targetPos = Math.floor(Math.random() * count);
+
+            for (let i = 0; i < count; i++) {
+                const img = document.createElement('img');
+                img.style.height = cfg.size + 'px';
+                img.style.width = cfg.size + 'px';
+
+                if (i === targetPos) {
+                    // 正解: O（丸）
+                    img.src = 'image_shiryoku/O_img.jpg';
+                    img.onclick = correct;
+                } else {
+                    // ダミー: C（ランドルト環）をランダム回転
+                    img.src = 'image_shiryoku/C_img.jpg';
+                    const rot = rotations[Math.floor(Math.random() * 4)];
+                    img.style.transform = `rotate(${rot}deg)`;
+                    img.onclick = e => {
+                        missCount++;
+                        document.getElementById('missDisplay').textContent = missCount;
+                        e.target.classList.add('wrong');
+                        setTimeout(() => e.target.classList.remove('wrong'), 200);
+                    };
+                }
+                grid.appendChild(img);
+            }
+        }
+
+        function correct() {
+            if (level >= MAX_LEVEL) {
+                clearInterval(timerInterval);
+                const finalMs = Date.now() - startTime;
+                document.getElementById('finalTime').textContent = formatTime(finalMs);
+
+                if (missCount > 0) {
+                    document.getElementById('finalMiss').textContent = `ミス回数: ${missCount}`;
+                } else {
+                    document.getElementById('finalMiss').textContent = 'ノーミス！';
+                    document.getElementById('finalMiss').style.color = '#d4af37';
+                }
+
+                const isNewRecord = saveRecord(finalMs);
+                if (isNewRecord) {
+                    document.getElementById('newRecordMsg').style.display = 'block';
+                }
+
+                document.getElementById('overlay').style.display = 'block';
+                document.getElementById('result').style.display = 'block';
+            } else {
+                level++;
+                document.getElementById('level').textContent = level;
+                createGrid();
+            }
+        }
+
+        function startGame() {
+            document.getElementById('start').style.display = 'none';
+            document.getElementById('game').style.display = 'block';
+            missCount = 0;
+            document.getElementById('missDisplay').textContent = '0';
+            startTime = Date.now();
+            timerInterval = setInterval(updateTimer, 10);
+            createGrid();
+        }
+
+        function getRecords() {
+            const data = localStorage.getItem(STORAGE_KEY);
+            return data ? JSON.parse(data) : [];
+        }
+
+        function saveRecord(ms) {
+            const records = getRecords();
+            const bestTime = records.length > 0 ? records[0].time : Infinity;
+
+            records.push({
+                time: ms,
+                miss: missCount,
+                date: new Date().toISOString()
+            });
+
+            records.sort((a, b) => a.time - b.time);
+
+            if (records.length > 10) {
+                records.length = 10;
+            }
+
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+
+            return ms < bestTime;
+        }
+
+        function showHistory() {
+            const records = getRecords();
+            const content = document.getElementById('historyContent');
+
+            if (records.length === 0) {
+                content.innerHTML = '<div class="no-records">まだ記録がありません</div>';
+            } else {
+                let html = '<div class="history-list">';
+                records.forEach((record, index) => {
+                    const date = new Date(record.date);
+                    const dateStr = `${date.getFullYear()}/${String(date.getMonth()+1).padStart(2,'0')}/${String(date.getDate()).padStart(2,'0')}`;
+                    const missStr = record.miss !== undefined ? ` (Miss:${record.miss})` : '';
+                    html += `
+                        <div class="history-item">
+                            <span class="history-rank">${index + 1}.</span>
+                            <span class="history-time">${formatTime(record.time)}${missStr}</span>
+                            <span class="history-date">${dateStr}</span>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                content.innerHTML = html;
+            }
+
+            document.getElementById('overlay').style.display = 'block';
+            document.getElementById('historyModal').style.display = 'block';
+        }
+
+        function closeHistory() {
+            document.getElementById('overlay').style.display = 'none';
+            document.getElementById('historyModal').style.display = 'none';
+        }
+
+        function clearHistory() {
+            if (confirm('すべての記録を消去しますか？')) {
+                localStorage.removeItem(STORAGE_KEY);
+                closeHistory();
+            }
+        }
+
+        function shareToX() {
+            const time = document.getElementById('finalTime').textContent;
+            const missText = missCount === 0 ? 'ノーミス！' : `ミス: ${missCount}回`;
+            const text = `Oを探せ！視力検査ゲームをクリア！\nタイム: ${time}\n${missText}\n\n#Oを探せ #視力検査ゲーム`;
+            const url = encodeURIComponent(window.location.href);
+            const tweetText = encodeURIComponent(text);
+            window.open(`https://twitter.com/intent/tweet?text=${tweetText}&url=${url}`, '_blank');
+        }
+    </script>
+</body>
+</html>
