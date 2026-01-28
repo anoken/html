@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>カタカナ → モールス信号</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: sans-serif;
+            background: #fff;
+            color: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 16px;
+        }
+        h1 { font-size: 20px; margin-bottom: 12px; }
+        .signal-light {
+            width: 36px; height: 36px; border-radius: 50%;
+            background: #ddd; border: 2px solid #999;
+            margin-bottom: 12px; transition: background 0.05s;
+        }
+        .signal-light.on {
+            background: #000;
+            box-shadow: 0 0 12px rgba(0,0,0,0.5);
+            border-color: #000;
+        }
+        .input-row {
+            display: flex; gap: 8px; align-items: stretch;
+            width: 100%; max-width: 420px; margin-bottom: 8px;
+        }
+        .input-row input {
+            flex: 1; font-size: 20px; padding: 6px 10px;
+            border: 2px solid #000; background: #fff; color: #000;
+            text-align: center; letter-spacing: 3px;
+        }
+        .input-row input:focus { outline: none; }
+        .input-row input::placeholder { color: #bbb; letter-spacing: 1px; }
+        .btn {
+            padding: 6px 16px; font-size: 14px;
+            border: 2px solid #000; cursor: pointer;
+            background: #000; color: #fff;
+        }
+        .btn:hover { background: #333; }
+        .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        .btn-stop { background: #fff; color: #000; }
+        .btn-stop:hover { background: #eee; }
+        .speed-row {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 12px; color: #666; margin-bottom: 10px;
+        }
+        .speed-row input[type="range"] { width: 100px; accent-color: #000; }
+        .morse-display {
+            width: 100%; max-width: 420px;
+            min-height: 60px; max-height: 280px; overflow-y: auto;
+            border: 2px solid #000; padding: 10px;
+            margin-bottom: 10px;
+            display: flex; flex-wrap: wrap; gap: 6px;
+            align-items: flex-start; align-content: flex-start;
+        }
+        .morse-line {
+            display: flex; flex-direction: column; align-items: center;
+            padding: 4px 6px; border: 1px solid #ddd;
+        }
+        .morse-char-label { font-size: 14px; color: #000; font-weight: bold; }
+        .morse-code { font-size: 18px; font-family: monospace; letter-spacing: 2px; color: #000; white-space: nowrap; }
+        .morse-line.active { border-color: #000; background: #f0f0f0; }
+        .morse-line.done { border-color: #eee; }
+        .morse-line.done .morse-code { color: #ccc; }
+        .morse-line.done .morse-char-label { color: #ccc; }
+        .placeholder { color: #bbb; font-size: 13px; }
+        .table-toggle {
+            color: #999; cursor: pointer; font-size: 12px;
+            border-bottom: 1px dashed #999;
+        }
+        .table-toggle:hover { color: #000; }
+        .morse-table {
+            display: none; width: 100%; max-width: 420px;
+            margin-top: 8px; border: 1px solid #ccc; padding: 10px;
+        }
+        .morse-table.show { display: block; }
+        .morse-table h3 { text-align: center; font-size: 13px; margin-bottom: 8px; color: #666; }
+        .table-grid {
+            display: grid; grid-template-columns: repeat(5, 1fr);
+            gap: 2px; font-family: monospace; font-size: 11px;
+        }
+        .table-cell {
+            text-align: center; padding: 3px 1px;
+            border-bottom: 1px solid #eee;
+        }
+        .table-cell span { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>カタカナ → モールス信号</h1>
+    <div class="signal-light" id="light"></div>
+    <div class="input-row">
+        <input type="text" id="input" placeholder="カタカナを入力">
+        <button class="btn" id="playBtn" onclick="convert()">再生</button>
+        <button class="btn btn-stop" id="stopBtn" onclick="stopPlay()" disabled>停止</button>
+    </div>
+    <div class="speed-row">
+        <span>速度</span>
+        <input type="range" id="speed" min="1" max="5" value="3">
+        <span id="speedLabel">普通</span>
+    </div>
+    <div class="morse-display" id="morseDisplay">
+        <div class="placeholder">ここにモールス信号が表示されます</div>
+    </div>
+    <div class="table-toggle" onclick="toggleTable()">符号表</div>
+    <div class="morse-table" id="morseTable"></div>
+
+    <script>
+        const MORSE_MAP = {
+            'ア': '--・--',  'イ': '・-',     'ウ': '・・-',    'エ': '-・---',  'オ': '・-・・・',
+            'カ': '・-・・',  'キ': '-・-・・', 'ク': '・・・-',  'ケ': '-・--',   'コ': '----',
+            'サ': '-・-・-', 'シ': '--・-・', 'ス': '---・-',  'セ': '・---・', 'ソ': '---・',
+            'タ': '-・',     'チ': '・・-・',  'ツ': '・--・',   'テ': '・-・--', 'ト': '・・-・・',
+            'ナ': '・-・',   'ニ': '-・-・',   'ヌ': '・・・・',  'ネ': '--・-',   'ノ': '・・--',
+            'ハ': '-・・・',  'ヒ': '--・・-', 'フ': '--・・',   'ヘ': '・',      'ホ': '-・・',
+            'マ': '-・・-',  'ミ': '・・-・-', 'ム': '-',       'メ': '-・・・-', 'モ': '-・・-・',
+            'ヤ': '・--',   'ユ': '-・・--', 'ヨ': '--',
+            'ラ': '・・・',  'リ': '--・',    'ル': '-・--・',  'レ': '---',    'ロ': '・-・-',
+            'ワ': '-・-',   'ヲ': '・---',   'ン': '・-・-・',
+            '゛': '・・',    '゜': '・・--・', 'ー': '・--・-',
+            ' ': ' ',      '　': ' '
+        };
+        const DAKUTEN_MAP = {
+            'ガ': 'カ゛', 'ギ': 'キ゛', 'グ': 'ク゛', 'ゲ': 'ケ゛', 'ゴ': 'コ゛',
+            'ザ': 'サ゛', 'ジ': 'シ゛', 'ズ': 'ス゛', 'ゼ': 'セ゛', 'ゾ': 'ソ゛',
+            'ダ': 'タ゛', 'ヂ': 'チ゛', 'ヅ': 'ツ゛', 'デ': 'テ゛', 'ド': 'ト゛',
+            'バ': 'ハ゛', 'ビ': 'ヒ゛', 'ブ': 'フ゛', 'ベ': 'ヘ゛', 'ボ': 'ホ゛',
+            'パ': 'ハ゜', 'ピ': 'ヒ゜', 'プ': 'フ゜', 'ペ': 'ヘ゜', 'ポ': 'ホ゜',
+            'ヴ': 'ウ゛'
+        };
+        const speedLabels = ['', 'とても遅い', '遅い', '普通', '速い', 'とても速い'];
+        let audioCtx = null, playing = false, stopRequested = false;
+
+        document.getElementById('speed').addEventListener('input', e => {
+            document.getElementById('speedLabel').textContent = speedLabels[e.target.value];
+        });
+
+        function getUnitMs() {
+            return [0, 150, 100, 70, 50, 35][parseInt(document.getElementById('speed').value)];
+        }
+
+        function expandText(text) {
+            let r = [];
+            for (const ch of text) {
+                if (DAKUTEN_MAP[ch]) for (const c of DAKUTEN_MAP[ch]) r.push(c);
+                else r.push(ch);
+            }
+            return r;
+        }
+
+        function convert() {
+            const raw = document.getElementById('input').value.trim();
+            if (!raw) return;
+            const chars = expandText(raw);
+            const display = document.getElementById('morseDisplay');
+            display.innerHTML = '';
+            const lines = [];
+            for (const ch of chars) {
+                const morse = MORSE_MAP[ch] || null;
+                if (ch === ' ' || ch === '\u3000') {
+                    const div = document.createElement('div');
+                    div.className = 'morse-line';
+                    div.style.height = '12px';
+                    display.appendChild(div);
+                    lines.push({ el: div, morse: null });
+                } else if (morse) {
+                    const div = document.createElement('div');
+                    div.className = 'morse-line';
+                    div.innerHTML = `<div class="morse-char-label">${ch}</div><div class="morse-code">${morse}</div>`;
+                    display.appendChild(div);
+                    lines.push({ el: div, morse });
+                }
+            }
+            playMorse(lines);
+        }
+
+        async function playMorse(lines) {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            playing = true; stopRequested = false;
+            document.getElementById('playBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            const unit = getUnitMs(), light = document.getElementById('light');
+
+            for (let i = 0; i < lines.length; i++) {
+                if (stopRequested) break;
+                if (i > 0) { lines[i-1].el.classList.remove('active'); lines[i-1].el.classList.add('done'); }
+                if (!lines[i].morse) { await sleep(unit * 7); continue; }
+                lines[i].el.classList.add('active');
+                lines[i].el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+                for (let j = 0; j < lines[i].morse.length; j++) {
+                    if (stopRequested) break;
+                    const sym = lines[i].morse[j];
+                    if (sym === '・') {
+                        light.classList.add('on'); beep(unit); await sleep(unit);
+                        light.classList.remove('on'); await sleep(unit);
+                    } else if (sym === '-') {
+                        light.classList.add('on'); beep(unit*3); await sleep(unit*3);
+                        light.classList.remove('on'); await sleep(unit);
+                    }
+                }
+                await sleep(unit * 2);
+            }
+            if (lines.length > 0) { lines[lines.length-1].el.classList.remove('active'); lines[lines.length-1].el.classList.add('done'); }
+            light.classList.remove('on'); playing = false;
+            document.getElementById('playBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+        }
+
+        function beep(ms) {
+            const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+            osc.frequency.value = 700; osc.type = 'sine'; gain.gain.value = 0.3;
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + ms / 1000);
+        }
+
+        function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+        function stopPlay() { stopRequested = true; document.getElementById('light').classList.remove('on'); }
+
+        function toggleTable() {
+            const t = document.getElementById('morseTable');
+            t.classList.toggle('show');
+            if (!t.innerHTML) {
+                let h = '<h3>和文モールス符号表</h3><div class="table-grid">';
+                for (const ch of 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン') {
+                    h += `<div class="table-cell"><span>${ch}</span> ${MORSE_MAP[ch]}</div>`;
+                }
+                h += `<div class="table-cell"><span>゛</span> ${MORSE_MAP['゛']}</div>`;
+                h += `<div class="table-cell"><span>゜</span> ${MORSE_MAP['゜']}</div>`;
+                h += `<div class="table-cell"><span>ー</span> ${MORSE_MAP['ー']}</div>`;
+                t.innerHTML = h + '</div>';
+            }
+        }
+
+        document.getElementById('input').addEventListener('input', e => {
+            const p = e.target.selectionStart;
+            e.target.value = e.target.value.replace(/[\u3041-\u3096]/g, ch => String.fromCharCode(ch.charCodeAt(0)+0x60));
+            e.target.setSelectionRange(p, p);
+        });
+    </script>
+</body>
+</html>
