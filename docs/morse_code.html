@@ -99,6 +99,7 @@
         <input type="text" id="input" placeholder="カタカナを入力">
         <button class="btn" id="playBtn" onclick="convert()">再生</button>
         <button class="btn btn-stop" id="stopBtn" onclick="stopPlay()" disabled>停止</button>
+        <button class="btn btn-stop" id="saveBtn" onclick="saveWav()">保存</button>
     </div>
     <div class="speed-row">
         <span>速度</span>
@@ -237,6 +238,103 @@
                 h += `<div class="table-cell"><span>ー</span> ${MORSE_MAP['ー']}</div>`;
                 t.innerHTML = h + '</div>';
             }
+        }
+
+        function getMorseSequence() {
+            const raw = document.getElementById('input').value.trim();
+            if (!raw) return null;
+            const chars = expandText(raw);
+            const sequences = [];
+            for (const ch of chars) {
+                const morse = MORSE_MAP[ch] || null;
+                if (ch === ' ' || ch === '\u3000') {
+                    sequences.push({ morse: null });
+                } else if (morse) {
+                    sequences.push({ morse });
+                }
+            }
+            return sequences;
+        }
+
+        function calcTotalDuration(sequences, unit) {
+            let t = 0;
+            for (let i = 0; i < sequences.length; i++) {
+                if (!sequences[i].morse) { t += unit * 7; continue; }
+                const m = sequences[i].morse;
+                for (let j = 0; j < m.length; j++) {
+                    if (m[j] === '・') t += unit + unit;
+                    else if (m[j] === '-') t += unit * 3 + unit;
+                }
+                t += unit * 2;
+            }
+            return t;
+        }
+
+        function scheduleBeeps(offCtx, sequences, unit) {
+            let t = 0;
+            for (let i = 0; i < sequences.length; i++) {
+                if (!sequences[i].morse) { t += unit * 7; continue; }
+                const m = sequences[i].morse;
+                for (let j = 0; j < m.length; j++) {
+                    const dur = m[j] === '・' ? unit : m[j] === '-' ? unit * 3 : 0;
+                    if (dur > 0) {
+                        const osc = offCtx.createOscillator();
+                        const gain = offCtx.createGain();
+                        osc.frequency.value = 700;
+                        osc.type = 'sine';
+                        gain.gain.value = 0.3;
+                        osc.connect(gain);
+                        gain.connect(offCtx.destination);
+                        osc.start(t / 1000);
+                        osc.stop(t / 1000 + dur / 1000);
+                        t += dur + unit;
+                    }
+                }
+                t += unit * 2;
+            }
+        }
+
+        function encodeWav(audioBuffer) {
+            const numCh = 1, sampleRate = audioBuffer.sampleRate;
+            const samples = audioBuffer.getChannelData(0);
+            const buffer = new ArrayBuffer(44 + samples.length * 2);
+            const view = new DataView(buffer);
+            function writeStr(o, s) { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); }
+            writeStr(0, 'RIFF');
+            view.setUint32(4, 36 + samples.length * 2, true);
+            writeStr(8, 'WAVE');
+            writeStr(12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, numCh, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * numCh * 2, true);
+            view.setUint16(32, numCh * 2, true);
+            view.setUint16(34, 16, true);
+            writeStr(36, 'data');
+            view.setUint32(40, samples.length * 2, true);
+            for (let i = 0; i < samples.length; i++) {
+                const s = Math.max(-1, Math.min(1, samples[i]));
+                view.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+            }
+            return new Blob([buffer], { type: 'audio/wav' });
+        }
+
+        async function saveWav() {
+            const sequences = getMorseSequence();
+            if (!sequences) return;
+            const unit = getUnitMs();
+            const totalMs = calcTotalDuration(sequences, unit);
+            const sampleRate = 44100;
+            const offCtx = new OfflineAudioContext(1, Math.ceil(sampleRate * (totalMs + 500) / 1000), sampleRate);
+            scheduleBeeps(offCtx, sequences, unit);
+            const rendered = await offCtx.startRendering();
+            const blob = encodeWav(rendered);
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'morse.wav';
+            a.click();
+            URL.revokeObjectURL(a.href);
         }
 
         document.getElementById('input').addEventListener('compositionend', e => {
