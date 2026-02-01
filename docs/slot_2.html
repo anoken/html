@@ -306,6 +306,122 @@ const PAYLINES = [
   {name:'斜め↗', ps:[[0,2],[1,1],[2,0]], color:'#cc44ff'},
 ];
 
+/* ====== Sound Effects (Web Audio API — no external files) ====== */
+const SFX=(function(){
+  let ctx=null,spinState=null,noiseBuf=null;
+
+  function C(){
+    if(!ctx) ctx=new(window.AudioContext||window.webkitAudioContext)();
+    if(ctx.state==='suspended') ctx.resume();
+    return ctx;
+  }
+
+  /* reusable: play a single oscillator note */
+  function tone(freq,type,vol,start,dur,freqEnd){
+    const c=C();
+    const o=c.createOscillator(),g=c.createGain();
+    o.connect(g);g.connect(c.destination);
+    o.type=type;
+    o.frequency.setValueAtTime(freq,start);
+    if(freqEnd) o.frequency.exponentialRampToValueAtTime(freqEnd,start+dur);
+    g.gain.setValueAtTime(vol,start);
+    g.gain.exponentialRampToValueAtTime(0.001,start+dur);
+    o.start(start);o.stop(start+dur+0.01);
+  }
+
+  /* cached white-noise buffer */
+  function noise(){
+    const c=C();
+    if(noiseBuf) return noiseBuf;
+    const len=c.sampleRate*2;
+    noiseBuf=c.createBuffer(1,len,c.sampleRate);
+    const d=noiseBuf.getChannelData(0);
+    for(let i=0;i<len;i++) d[i]=Math.random()*2-1;
+    return noiseBuf;
+  }
+
+  return{
+    /* コイン投入 */
+    coin(){
+      const t=C().currentTime;
+      tone(1200,'square',0.12,t,0.06);
+      tone(1800,'square',0.10,t+0.06,0.08);
+      tone(2400,'square',0.08,t+0.10,0.10);
+    },
+
+    /* リール回転ループ（フィルタ付きノイズ） */
+    spinStart(){
+      const c=C();
+      if(spinState){try{spinState.src.stop();}catch(e){}}
+      const src=c.createBufferSource();
+      src.buffer=noise();src.loop=true;
+      const bp=c.createBiquadFilter();
+      bp.type='bandpass';bp.frequency.value=600;bp.Q.value=1.5;
+      const g=c.createGain();g.gain.value=0.07;
+      src.connect(bp);bp.connect(g);g.connect(c.destination);
+      src.start();
+      spinState={src,g};
+    },
+
+    /* 回転音フェードアウト */
+    spinStop(){
+      if(!spinState)return;
+      const c=C(),s=spinState;spinState=null;
+      s.g.gain.setValueAtTime(s.g.gain.value,c.currentTime);
+      s.g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.25);
+      setTimeout(()=>{try{s.src.stop();}catch(e){}},350);
+    },
+
+    /* リール停止音（ガシャン） */
+    reelStop(){
+      const t=C().currentTime;
+      tone(180,'sine',0.25,t,0.12,55);       // 低音サッド
+      tone(800,'square',0.08,t,0.025);        // 高音クリック
+      /* noise burst */
+      const c=C(),src=c.createBufferSource();
+      src.buffer=noise();
+      const hp=c.createBiquadFilter();
+      hp.type='highpass';hp.frequency.value=3000;
+      const g=c.createGain();
+      g.gain.setValueAtTime(0.12,t);
+      g.gain.exponentialRampToValueAtTime(0.001,t+0.06);
+      src.connect(hp);hp.connect(g);g.connect(c.destination);
+      src.start(t);src.stop(t+0.07);
+    },
+
+    /* 当たりジングル */
+    win(){
+      const t=C().currentTime;
+      const ns=[523,659,784,1047];            // C5 E5 G5 C6
+      ns.forEach((f,i)=>tone(f,'square',0.10,t+i*0.12,0.22));
+    },
+
+    /* 大当たりファンファーレ */
+    bigWin(){
+      const t=C().currentTime;
+      [523,659,784,1047,784,1047,1319,1568].forEach((f,i)=>
+        tone(f,'square',0.09,t+i*0.10,0.25));
+      [262,330,392,523].forEach((f,i)=>
+        tone(f,'sawtooth',0.06,t+i*0.20,0.35));
+    },
+
+    /* ハズレ */
+    lose(){
+      const t=C().currentTime;
+      tone(350,'sine',0.08,t,0.15);
+      tone(280,'sine',0.07,t+0.15,0.20);
+      tone(200,'sine',0.05,t+0.30,0.30);
+    },
+
+    /* ゲームオーバー */
+    gameOver(){
+      const t=C().currentTime;
+      [440,370,311,261].forEach((f,i)=>
+        tone(f,'sawtooth',0.08,t+i*0.25,0.35));
+    }
+  };
+})();
+
 /* ====== State ====== */
 let coins = INIT_COINS;
 let reels = [];
@@ -472,7 +588,9 @@ function startGame(){
   reels.forEach(r=>r.clearHL());
   setBtnStart(false);
   setStopBtns(true);
+  SFX.coin();
   reels.forEach(r=>r.spin());
+  SFX.spinStart();
 }
 
 function stopReel(i){
@@ -481,6 +599,7 @@ function stopReel(i){
   if(btn.disabled) return;
   btn.disabled=true;
   reels[i].stop();
+  SFX.reelStop();
   stopOrder.push(i);
   if(stopOrder.length===2) ensurePairExists();
   if(stopOrder.length===3) forceLastReel();
@@ -577,6 +696,7 @@ function nudgeReel(ri,naturalOff,reqs){
 
 /* ====== Evaluate result ====== */
 function evaluate(){
+  SFX.spinStop();
   const g=reels.map(r=>r.getSymbols());
   let total=0;
   const wins=[];
@@ -597,18 +717,20 @@ function evaluate(){
     drawWinLines(wins);
     const det=wins.map(w=>`${w.name}: ${w.sym.icon} ${w.sym.label}`).join(' / ');
     const big=total>=50;
+    setTimeout(()=>big?SFX.bigWin():SFX.win(),200);
     showResult(
       `🎉 WIN! +${total}枚`,
       det,
       big?'big-win':'win'
     );
   } else {
+    setTimeout(()=>SFX.lose(),150);
     showResult('ハズレ...','','');
   }
 
   playing=false;
   if(coins>=BET) setBtnStart(true);
-  else setTimeout(showGameOver,1200);
+  else setTimeout(()=>{SFX.gameOver();showGameOver();},1200);
 }
 
 /* ====== UI helpers ====== */
@@ -637,6 +759,7 @@ function clearResult(){
 
 function showGameOver(){document.getElementById('overlay-gameover').classList.add('show');}
 function resetGame(){
+  SFX.spinStop();
   coins=INIT_COINS;updateCoins();
   document.getElementById('overlay-gameover').classList.remove('show');
   setBtnStart(true);setStopBtns(false);
