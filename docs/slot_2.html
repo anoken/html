@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>スロットゲーム</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:#0d0d1a;
+  color:#fff;
+  font-family:'Segoe UI','Hiragino Sans',sans-serif;
+  display:flex;justify-content:center;align-items:center;
+  min-height:100vh;
+  overflow-y:auto;
+}
+.machine{
+  background:linear-gradient(160deg,#1e1e3a 0%,#12122a 100%);
+  border:3px solid #c8a000;
+  border-radius:24px;
+  padding:24px 20px 20px;
+  box-shadow:0 0 40px rgba(200,160,0,.25),inset 0 1px 0 rgba(255,255,255,.06);
+  text-align:center;
+  width:520px;max-width:97vw;
+  position:relative;
+}
+.title{
+  font-size:2em;font-weight:900;letter-spacing:.15em;
+  background:linear-gradient(180deg,#ffe066,#c8a000);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  margin-bottom:6px;
+}
+.subtitle{font-size:.75em;color:#887740;margin-bottom:14px;letter-spacing:.08em}
+.info-bar{
+  display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:16px;padding:0 4px;
+}
+.coin-box,.bet-box{
+  font-size:1.05em;font-weight:700;
+  padding:6px 18px;border-radius:8px;
+  background:rgba(0,0,0,.35);border:1px solid #444;
+}
+.coin-box span{color:#ffd700}
+.bet-box span{color:#aaa}
+.coin-box.flash{animation:cpulse .35s}
+@keyframes cpulse{50%{transform:scale(1.08);border-color:#ffd700}}
+
+/* === Reels === */
+.frame{
+  background:#000;border:4px solid #666;border-radius:14px;
+  padding:0;margin-bottom:18px;position:relative;
+  overflow:hidden;
+}
+.reels{
+  display:flex;justify-content:center;gap:6px;
+  padding:10px 8px;
+}
+.reel{
+  width:130px;height:300px;
+  overflow:hidden;position:relative;
+  background:#0a0a0a;border:2px solid #444;border-radius:8px;
+}
+.reel-strip{position:absolute;width:100%;left:0;top:0;will-change:transform}
+.sym{
+  width:100%;height:100px;
+  display:flex;align-items:center;justify-content:center;
+  flex-direction:column;
+  border-bottom:1px solid rgba(255,255,255,.07);
+  user-select:none;position:relative;
+}
+.sym-icon{font-size:2.6em;line-height:1}
+.sym-label{font-size:.55em;margin-top:2px;opacity:.6;letter-spacing:.05em}
+
+/* symbol themes */
+.s-cherry .sym-icon{color:#ff3366}
+.s-bell   .sym-icon{color:#ffcc00}
+.s-bar    .sym-icon{color:#fff;font-weight:900;font-size:1.8em;
+  background:linear-gradient(180deg,#555,#222);padding:4px 14px;border-radius:6px;border:2px solid #888}
+.s-anoken .sym-icon{color:#44ddff;font-weight:900;font-size:1.5em;
+  background:linear-gradient(180deg,#103050,#0a1828);padding:4px 10px;border-radius:6px;border:2px solid #2288aa}
+.s-seven  .sym-icon{
+  color:#ff1111;font-weight:900;font-size:2.8em;
+  text-shadow:0 0 12px rgba(255,0,0,.7),0 0 30px rgba(255,0,0,.3);
+}
+
+.sym.hl{animation:symhl .45s ease-in-out infinite alternate}
+@keyframes symhl{from{background:rgba(255,215,0,.08)}to{background:rgba(255,215,0,.28)}}
+
+/* reel overlays */
+.reel-shade-t,.reel-shade-b{
+  position:absolute;left:0;right:0;height:35px;pointer-events:none;z-index:3;
+}
+.reel-shade-t{top:0;background:linear-gradient(#0a0a0a,transparent)}
+.reel-shade-b{bottom:0;background:linear-gradient(transparent,#0a0a0a)}
+.reel-center{
+  position:absolute;left:0;right:0;top:99px;height:102px;
+  border-top:2px solid rgba(255,215,0,.35);
+  border-bottom:2px solid rgba(255,215,0,.35);
+  pointer-events:none;z-index:4;
+}
+
+/* payline markers (left side) */
+.pl-markers{
+  position:absolute;left:2px;top:10px;bottom:0;width:18px;z-index:5;
+  display:flex;flex-direction:column;pointer-events:none;
+}
+.pl-dot{
+  position:absolute;left:0;width:14px;height:14px;border-radius:50%;
+  font-size:7px;display:flex;align-items:center;justify-content:center;
+  font-weight:700;opacity:.5;
+}
+.pl-dot.active{opacity:1;box-shadow:0 0 6px currentColor}
+
+/* win-lines SVG overlay */
+.win-svg{
+  position:absolute;top:10px;left:8px;
+  width:calc(100% - 16px);height:300px;
+  pointer-events:none;z-index:6;
+}
+.win-svg line{stroke-width:3;stroke-linecap:round;opacity:0;
+  animation:lineFade .6s ease forwards}
+@keyframes lineFade{to{opacity:.7}}
+
+/* === Controls === */
+.controls{display:flex;gap:10px;justify-content:center;margin-bottom:10px;flex-wrap:wrap}
+btn,button{
+  font-family:inherit;padding:12px 22px;font-size:1.05em;font-weight:700;
+  border:none;border-radius:10px;cursor:pointer;transition:all .15s;
+  text-transform:uppercase;letter-spacing:.06em;
+}
+button:disabled{opacity:.35;cursor:not-allowed;transform:none!important;box-shadow:none!important}
+.btn-start{
+  background:linear-gradient(180deg,#44ee44,#22aa22);color:#000;
+  min-width:200px;font-size:1.25em;
+}
+.btn-start:hover:not(:disabled){transform:scale(1.04);box-shadow:0 0 18px rgba(68,238,68,.45)}
+.btn-start:active:not(:disabled){transform:scale(.97)}
+.btn-stop{
+  background:linear-gradient(180deg,#ee4444,#aa2222);color:#fff;
+  min-width:90px;
+}
+.btn-stop:hover:not(:disabled){transform:scale(1.04);box-shadow:0 0 14px rgba(238,68,68,.4)}
+.btn-stop:active:not(:disabled){transform:scale(.97)}
+
+.result{
+  min-height:48px;font-size:1.15em;padding:8px 10px;
+  border-radius:10px;margin-bottom:14px;
+  transition:all .3s;
+}
+.result.win{
+  color:#ffd700;
+  text-shadow:0 0 8px rgba(255,215,0,.5);
+  animation:flash .5s ease-in-out 3;
+}
+.result.big-win{
+  font-size:1.5em;
+  color:#ff4444;
+  text-shadow:0 0 15px rgba(255,50,50,.6);
+  animation:flash .4s ease-in-out 5;
+}
+@keyframes flash{0%,100%{opacity:1}50%{opacity:.4}}
+.result small{font-size:.78em;opacity:.8}
+
+/* paytable */
+.paytable{
+  background:rgba(0,0,0,.3);border-radius:10px;padding:12px 14px;
+  display:grid;grid-template-columns:1fr 1fr;gap:4px;
+  font-size:.82em;text-align:left;
+}
+.pt-item{
+  display:flex;justify-content:space-between;
+  padding:4px 10px;border-radius:5px;
+  background:rgba(255,255,255,.04);
+}
+.pt-item span:last-child{color:#ffd700;font-weight:700}
+
+.keys-hint{
+  margin-top:10px;font-size:.7em;color:#555;letter-spacing:.02em;
+}
+
+/* Game Over */
+.overlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.85);z-index:100;
+  justify-content:center;align-items:center;flex-direction:column;
+}
+.overlay.show{display:flex}
+.overlay h2{font-size:2.8em;color:#ff4444;margin-bottom:16px;letter-spacing:.1em}
+.overlay p{font-size:1.15em;margin-bottom:24px;color:#aaa}
+.overlay button{
+  background:linear-gradient(180deg,#ffd700,#c8a000);
+  color:#000;font-size:1.2em;padding:14px 44px;border-radius:12px;
+  border:none;cursor:pointer;font-weight:700;
+}
+.overlay button:hover{transform:scale(1.05);box-shadow:0 0 20px rgba(255,215,0,.4)}
+
+@media(max-width:540px){
+  .machine{padding:16px 10px 14px}
+  .title{font-size:1.5em}
+  .reel{width:100px;height:240px}
+  .sym{height:80px}
+  .sym-icon{font-size:2em}
+  .reel-center{top:79px;height:82px}
+  .reel-shade-t,.reel-shade-b{height:25px}
+  .btn-start{min-width:160px;font-size:1.1em}
+  .btn-stop{min-width:72px;font-size:.95em}
+}
+</style>
+</head>
+<body>
+
+<div class="machine">
+  <div class="title">SLOT GAME</div>
+  <div class="subtitle">- 3×3 REEL -</div>
+
+  <div class="info-bar">
+    <div class="coin-box" id="coin-box">🪙 コイン: <span id="coins">100</span></div>
+    <div class="bet-box">BET: <span>3</span></div>
+  </div>
+
+  <div class="frame" id="frame">
+    <div class="reels" id="reels">
+      <div class="reel" id="reel-0">
+        <div class="reel-strip" id="strip-0"></div>
+        <div class="reel-shade-t"></div>
+        <div class="reel-shade-b"></div>
+        <div class="reel-center"></div>
+      </div>
+      <div class="reel" id="reel-1">
+        <div class="reel-strip" id="strip-1"></div>
+        <div class="reel-shade-t"></div>
+        <div class="reel-shade-b"></div>
+        <div class="reel-center"></div>
+      </div>
+      <div class="reel" id="reel-2">
+        <div class="reel-strip" id="strip-2"></div>
+        <div class="reel-shade-t"></div>
+        <div class="reel-shade-b"></div>
+        <div class="reel-center"></div>
+      </div>
+    </div>
+    <svg class="win-svg" id="win-svg" preserveAspectRatio="none"></svg>
+  </div>
+
+  <div class="controls">
+    <button class="btn-start" id="btn-start">スタート</button>
+  </div>
+  <div class="controls" style="margin-bottom:14px">
+    <button class="btn-stop" id="stop-0" disabled>STOP 1</button>
+    <button class="btn-stop" id="stop-1" disabled>STOP 2</button>
+    <button class="btn-stop" id="stop-2" disabled>STOP 3</button>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="paytable">
+    <div class="pt-item"><span style="color:#ff3366">🍒 チェリー ×3</span><span>+5</span></div>
+    <div class="pt-item"><span style="color:#ffcc00">🔔 ベル ×3</span><span>+10</span></div>
+    <div class="pt-item"><span>BAR ×3</span><span>+20</span></div>
+    <div class="pt-item"><span style="color:#44ddff">aNo研 ×3</span><span>+30</span></div>
+    <div class="pt-item"><span style="color:#ff2222">7 ×3</span><span>+100</span></div>
+    <div class="pt-item"><span>判定ライン</span><span>5本</span></div>
+  </div>
+
+  <div class="keys-hint">SPACE=スタート / 1,2,3=ストップ</div>
+</div>
+
+<div class="overlay" id="overlay-gameover">
+  <h2>GAME OVER</h2>
+  <p>コインがなくなりました</p>
+  <button id="btn-restart">リスタート</button>
+</div>
+
+<script>
+/* ====== Constants ====== */
+const SYM_DATA = {
+  cherry:{id:'cherry',icon:'🍒',  label:'チェリー',cls:'s-cherry',payout:5},
+  bell:  {id:'bell',  icon:'🔔',  label:'ベル',    cls:'s-bell',  payout:10},
+  bar:   {id:'bar',   icon:'BAR', label:'BAR',     cls:'s-bar',   payout:20},
+  anoken:{id:'anoken',icon:'aNo研',label:'aNo研',  cls:'s-anoken',payout:30},
+  seven: {id:'seven', icon:'７',   label:'7',       cls:'s-seven', payout:100},
+};
+
+/* 16-symbol reel strip (shared by all 3 reels)
+   cherry×6  bell×4  bar×3  anoken×2  seven×1 */
+const STRIP = [
+  'cherry','bell','bar','cherry','bell','anoken',
+  'cherry','bar','bell','cherry','seven',
+  'cherry','bar','bell','anoken','cherry'
+];
+
+const SH = 100;           // symbol height px  (80 on mobile, handled via CSS only visually; logic stays 100)
+const RLEN = STRIP.length; // 16
+const CYCLES = 5;          // repeated cycles in DOM strip
+const BET = 3;
+const INIT_COINS = 100;
+const STOP_DUR = 420;      // ms for stop easing
+const AUTOSTOP = 15000;    // ms auto-stop timeout
+
+/* ====== Paylines (shared constant) ====== */
+const PAYLINES = [
+  {name:'上段',   ps:[[0,0],[1,0],[2,0]], color:'#ff4444'},
+  {name:'中段',   ps:[[0,1],[1,1],[2,1]], color:'#44ff44'},
+  {name:'下段',   ps:[[0,2],[1,2],[2,2]], color:'#4488ff'},
+  {name:'斜め↘', ps:[[0,0],[1,1],[2,2]], color:'#ffaa00'},
+  {name:'斜め↗', ps:[[0,2],[1,1],[2,0]], color:'#cc44ff'},
+];
+
+/* ====== State ====== */
+let coins = INIT_COINS;
+let reels = [];
+let stoppedN = 0;
+let playing = false;
+let stopOrder = [];  // tracks reel stop order for win-forcing
+
+/* ====== Reel class ====== */
+class Reel {
+  constructor(i){
+    this.idx = i;
+    this.el = document.getElementById(`reel-${i}`);
+    this.stripEl = document.getElementById(`strip-${i}`);
+    this.spinning = false;
+    this.stopping = false;
+    this.speed = 0;
+    this.lastT = 0;
+    this.stopT0 = 0;
+    this.stopP0 = 0;
+    this.stopTarget = 0;
+    this.raf = null;
+    this.autoTimer = null;
+    this.onStop = null; // callback
+    this._build();
+    const sh = this._sh();
+    const startIdx = Math.floor(Math.random()*RLEN);
+    this.pos = startIdx * sh;
+    this.offset = startIdx;
+    this._render();
+  }
+
+  _build(){
+    let h='';
+    for(let c=0;c<CYCLES;c++){
+      for(let j=0;j<RLEN;j++){
+        const s=SYM_DATA[STRIP[j]];
+        h+=`<div class="sym ${s.cls}" data-sid="${s.id}">
+              <div class="sym-icon">${s.icon}</div>
+              <div class="sym-label">${s.label}</div>
+            </div>`;
+      }
+    }
+    this.stripEl.innerHTML=h;
+    this.symEls = this.stripEl.querySelectorAll('.sym');
+  }
+
+  _render(){
+    this.stripEl.style.transform=`translateY(${-this.pos}px)`;
+  }
+
+  /* ---- Responsive symbol height ---- */
+  _sh(){
+    // use actual rendered height of first symbol
+    if(this.symEls.length) return this.symEls[0].offsetHeight || SH;
+    return SH;
+  }
+
+  spin(){
+    if(this.raf) cancelAnimationFrame(this.raf);
+    if(this.autoTimer) clearTimeout(this.autoTimer);
+    this.spinning=true;
+    this.stopping=false;
+    const sh=this._sh();
+    this.speed = (14+Math.random()*4) * (sh/SH); // ~14-18 px/frame scaled
+    this.lastT=performance.now();
+    this.clearHL();
+    this._loop();
+    this.autoTimer=setTimeout(()=>{if(this.spinning)this.stop();},AUTOSTOP);
+  }
+
+  _loop(){
+    const now=performance.now();
+    const sh=this._sh();
+    const cyclePx=RLEN*sh;
+
+    if(this.stopping){
+      const elapsed=now-this.stopT0;
+      const prog=Math.min(elapsed/STOP_DUR,1);
+      const ease=1-Math.pow(1-prog,3); // ease-out cubic
+      this.pos=this.stopP0+(this.stopTarget-this.stopP0)*ease;
+      this._render();
+      if(prog>=1){
+        this.pos=this.stopTarget;
+        while(this.pos>=cyclePx) this.pos-=cyclePx;
+        while(this.pos<0) this.pos+=cyclePx;
+        this.offset=Math.round(this.pos/sh)%RLEN;
+        this._render();
+        this.stopping=false;
+        if(this.onStop) this.onStop();
+        return;
+      }
+    } else if(this.spinning){
+      const dt=Math.min(now-this.lastT,50);
+      this.lastT=now;
+      this.pos+=this.speed*(dt/16.67);
+      while(this.pos>=cyclePx*(CYCLES-1)) this.pos-=cyclePx;
+      this._render();
+    }
+    this.raf=requestAnimationFrame(()=>this._loop());
+  }
+
+  stop(){
+    if(!this.spinning) return;
+    if(this.autoTimer){clearTimeout(this.autoTimer);this.autoTimer=null;}
+    this.spinning=false;
+    this.stopping=true;
+    this.stopP0=this.pos;
+    this.stopT0=performance.now();
+    const sh=this._sh();
+    const ahead=2.5*sh;
+    this.stopTarget=Math.round((this.pos+ahead)/sh)*sh;
+  }
+
+  getSymbols(){
+    const o=this.offset;
+    return [
+      STRIP[o%RLEN],
+      STRIP[(o+1)%RLEN],
+      STRIP[(o+2)%RLEN]
+    ];
+  }
+
+  clearHL(){
+    this.symEls.forEach(e=>e.classList.remove('hl'));
+  }
+
+  highlight(row){
+    const sh=this._sh();
+    const i=this.offset+row;
+    const el=this.symEls[i%this.symEls.length];
+    if(el) el.classList.add('hl');
+  }
+}
+
+/* ====== Init ====== */
+function init(){
+  reels=[new Reel(0),new Reel(1),new Reel(2)];
+  reels.forEach(r=>{
+    r.onStop=()=>{
+      stoppedN++;
+      if(stoppedN===3) evaluate();
+    };
+  });
+  updateCoins();
+  document.getElementById('btn-start').addEventListener('click',startGame);
+  document.getElementById('btn-restart').addEventListener('click',resetGame);
+  for(let i=0;i<3;i++){
+    document.getElementById(`stop-${i}`).addEventListener('click',()=>stopReel(i));
+  }
+  document.addEventListener('keydown',onKey);
+}
+
+/* ====== Game flow ====== */
+function startGame(){
+  if(playing) return;
+  if(coins<BET){showGameOver();return;}
+  coins-=BET;
+  updateCoins();
+  playing=true;
+  stoppedN=0;
+  stopOrder=[];
+  clearResult();
+  clearWinLines();
+  reels.forEach(r=>r.clearHL());
+  setBtnStart(false);
+  setStopBtns(true);
+  reels.forEach(r=>r.spin());
+}
+
+function stopReel(i){
+  if(!playing) return;
+  const btn=document.getElementById(`stop-${i}`);
+  if(btn.disabled) return;
+  btn.disabled=true;
+  reels[i].stop();
+  stopOrder.push(i);
+  if(stopOrder.length===2) ensurePairExists();
+  if(stopOrder.length===3) forceLastReel();
+}
+
+/* ====== Win-forcing helpers ====== */
+/* Predicted symbol offset a reel will land on (from its stopTarget) */
+function predictOffset(ri){
+  const sh=reels[ri]._sh();
+  return ((Math.round(reels[ri].stopTarget/sh)%RLEN)+RLEN)%RLEN;
+}
+function symsAtOff(off){
+  return [STRIP[off%RLEN],STRIP[(off+1)%RLEN],STRIP[(off+2)%RLEN]];
+}
+
+/* After 2nd reel is told to stop: make sure at least one payline pair
+   between the first two stopped reels already matches, so the 3rd reel
+   can always complete a line. */
+function ensurePairExists(){
+  const r1=stopOrder[0], r2=stopOrder[1];
+  const off1=predictOffset(r1), off2=predictOffset(r2);
+  const s1=symsAtOff(off1), s2=symsAtOff(off2);
+
+  let matched=false;
+  PAYLINES.forEach(L=>{
+    let row1=null,row2=null;
+    L.ps.forEach(([ri,row])=>{if(ri===r1)row1=row;if(ri===r2)row2=row;});
+    if(row1!==null&&row2!==null&&s1[row1]===s2[row2]) matched=true;
+  });
+  if(matched) return; // already have a pair
+
+  /* Collect requirements: for each payline, what does r2 need at which row? */
+  const reqs=[];
+  PAYLINES.forEach(L=>{
+    let row1=null,row2=null;
+    L.ps.forEach(([ri,row])=>{if(ri===r1)row1=row;if(ri===r2)row2=row;});
+    if(row1!==null&&row2!==null) reqs.push({row:row2,sym:s1[row1]});
+  });
+  nudgeReel(r2,off2,reqs);
+}
+
+/* After 3rd reel is told to stop: force it onto an offset that completes
+   at least one 3-symbol match. */
+function forceLastReel(){
+  const r3=stopOrder[2];
+  const off3=predictOffset(r3);
+  const otherOffs={};
+  stopOrder.slice(0,2).forEach(ri=>{otherOffs[ri]=predictOffset(ri);});
+
+  const reqs=[];
+  PAYLINES.forEach(L=>{
+    let r3Row=null; const others=[];
+    L.ps.forEach(([ri,row])=>{
+      if(ri===r3) r3Row=row;
+      else if(otherOffs[ri]!==undefined) others.push(STRIP[(otherOffs[ri]+row)%RLEN]);
+    });
+    if(r3Row!==null&&others.length===2&&others[0]===others[1]){
+      reqs.push({row:r3Row,sym:others[0]});
+    }
+  });
+  if(reqs.length===0) return; // shouldn't happen after ensurePairExists
+
+  /* Already valid? */
+  const cur=symsAtOff(off3);
+  if(reqs.some(rq=>cur[rq.row]===rq.sym)) return;
+
+  nudgeReel(r3,off3,reqs);
+}
+
+/* Adjust a reel's stopTarget to the nearest offset satisfying any requirement */
+function nudgeReel(ri,naturalOff,reqs){
+  const valid=new Set();
+  reqs.forEach(rq=>{
+    for(let p=0;p<RLEN;p++){
+      if(STRIP[p]===rq.sym){
+        valid.add(((p-rq.row)%RLEN+RLEN)%RLEN);
+      }
+    }
+  });
+  if(valid.size===0) return;
+
+  let best=naturalOff,bestD=Infinity;
+  valid.forEach(v=>{
+    const d=Math.min(Math.abs(v-naturalOff),RLEN-Math.abs(v-naturalOff));
+    if(d<bestD){bestD=d;best=v;}
+  });
+  if(best===naturalOff) return;
+
+  const sh=reels[ri]._sh();
+  const diff=((best-naturalOff)%RLEN+RLEN)%RLEN;
+  const adj=diff<=RLEN/2?diff:diff-RLEN;
+  reels[ri].stopTarget+=adj*sh;
+}
+
+/* ====== Evaluate result ====== */
+function evaluate(){
+  const g=reels.map(r=>r.getSymbols());
+  let total=0;
+  const wins=[];
+
+  PAYLINES.forEach(L=>{
+    const ids=L.ps.map(([r,row])=>g[r][row]);
+    if(ids[0]===ids[1]&&ids[1]===ids[2]){
+      const s=SYM_DATA[ids[0]];
+      total+=s.payout;
+      wins.push({...L,sym:s});
+      L.ps.forEach(([r,row])=>reels[r].highlight(row));
+    }
+  });
+
+  if(total>0){
+    coins+=total;
+    updateCoins();
+    drawWinLines(wins);
+    const det=wins.map(w=>`${w.name}: ${w.sym.icon} ${w.sym.label}`).join(' / ');
+    const big=total>=50;
+    showResult(
+      `🎉 WIN! +${total}枚`,
+      det,
+      big?'big-win':'win'
+    );
+  } else {
+    showResult('ハズレ...','','');
+  }
+
+  playing=false;
+  if(coins>=BET) setBtnStart(true);
+  else setTimeout(showGameOver,1200);
+}
+
+/* ====== UI helpers ====== */
+function updateCoins(){
+  document.getElementById('coins').textContent=coins;
+  const box=document.getElementById('coin-box');
+  box.classList.remove('flash');
+  void box.offsetWidth; // reflow
+  box.classList.add('flash');
+}
+
+function setBtnStart(en){document.getElementById('btn-start').disabled=!en;}
+function setStopBtns(en){
+  for(let i=0;i<3;i++) document.getElementById(`stop-${i}`).disabled=!en;
+}
+
+function showResult(main,sub,cls){
+  const el=document.getElementById('result');
+  el.innerHTML=main+(sub?`<br><small>${sub}</small>`:'');
+  el.className='result'+(cls?' '+cls:'');
+}
+function clearResult(){
+  const el=document.getElementById('result');
+  el.textContent='';el.className='result';
+}
+
+function showGameOver(){document.getElementById('overlay-gameover').classList.add('show');}
+function resetGame(){
+  coins=INIT_COINS;updateCoins();
+  document.getElementById('overlay-gameover').classList.remove('show');
+  setBtnStart(true);setStopBtns(false);
+  clearResult();clearWinLines();
+  reels.forEach(r=>r.clearHL());
+  playing=false;
+}
+
+/* ====== Win line drawing ====== */
+function clearWinLines(){document.getElementById('win-svg').innerHTML='';}
+
+function drawWinLines(wins){
+  const svg=document.getElementById('win-svg');
+  svg.innerHTML='';
+  const reelEls=[
+    document.getElementById('reel-0'),
+    document.getElementById('reel-1'),
+    document.getElementById('reel-2')
+  ];
+
+  /* Size SVG to match reels area for correct coordinate mapping */
+  const svgRect=svg.getBoundingClientRect();
+  const w=svgRect.width, h=svgRect.height;
+  svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
+
+  /* Compute SVG-relative centres of each reel×row cell */
+  function cellCenter(ri,row){
+    const rr=reelEls[ri].getBoundingClientRect();
+    const sh=rr.height/3;
+    return {
+      x: rr.left+rr.width/2  - svgRect.left,
+      y: rr.top +sh*row+sh/2 - svgRect.top
+    };
+  }
+
+  wins.forEach(w=>{
+    const pts=w.ps.map(([r,row])=>cellCenter(r,row));
+    const ns='http://www.w3.org/2000/svg';
+    const line1=document.createElementNS(ns,'polyline');
+    line1.setAttribute('points',pts.map(p=>`${p.x},${p.y}`).join(' '));
+    line1.setAttribute('fill','none');
+    line1.setAttribute('stroke',w.color);
+    line1.setAttribute('stroke-width','4');
+    line1.setAttribute('stroke-linecap','round');
+    line1.setAttribute('stroke-linejoin','round');
+    line1.style.filter=`drop-shadow(0 0 6px ${w.color})`;
+    svg.appendChild(line1);
+
+    /* circles at each cell */
+    pts.forEach(p=>{
+      const c=document.createElementNS(ns,'circle');
+      c.setAttribute('cx',p.x);c.setAttribute('cy',p.y);c.setAttribute('r','6');
+      c.setAttribute('fill',w.color);c.style.opacity='0.7';
+      svg.appendChild(c);
+    });
+  });
+}
+
+/* ====== Keyboard ====== */
+function onKey(e){
+  if(e.repeat) return;
+  if(e.code==='Space'){e.preventDefault();if(!playing)startGame();}
+  if(e.code==='Digit1'||e.code==='Numpad1'||e.code==='KeyJ') stopReel(0);
+  if(e.code==='Digit2'||e.code==='Numpad2'||e.code==='KeyK') stopReel(1);
+  if(e.code==='Digit3'||e.code==='Numpad3'||e.code==='KeyL') stopReel(2);
+}
+
+/* ====== Boot ====== */
+init();
+</script>
+</body>
+</html>
