@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>リアルタイム スペクトログラム</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a0f;
+    color: #e0e0e0;
+    font-family: 'Segoe UI', 'Meiryo', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+  }
+  h1 {
+    font-size: 1.4rem;
+    font-weight: 400;
+    margin-bottom: 16px;
+    letter-spacing: 0.05em;
+    color: #aac;
+  }
+  .controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  button {
+    background: #1a1a2e;
+    color: #7eb8da;
+    border: 1px solid #2a2a4a;
+    padding: 8px 24px;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  button:hover { background: #2a2a4e; border-color: #4a4a7a; }
+  button.active { background: #1a3a2e; border-color: #3a7a5a; color: #7edaaa; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  label {
+    font-size: 0.85rem;
+    color: #889;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  select, input[type="range"] {
+    background: #1a1a2e;
+    color: #aac;
+    border: 1px solid #2a2a4a;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+  }
+  .canvas-wrap {
+    position: relative;
+    border: 1px solid #1a1a2e;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  canvas { display: block; }
+  #freqAxis {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+  }
+  .legend {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    font-size: 0.8rem;
+    color: #778;
+  }
+  #colorBar {
+    width: 200px;
+    height: 14px;
+    border-radius: 3px;
+  }
+  .info {
+    margin-top: 10px;
+    font-size: 0.78rem;
+    color: #556;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<h1>Realtime Spectrogram</h1>
+
+<div class="controls">
+  <button id="btnStart">Start</button>
+  <button id="btnStop" disabled>Stop</button>
+  <button id="btnClear">Clear</button>
+
+  <label>FFT:
+    <select id="fftSize">
+      <option value="1024">1024</option>
+      <option value="2048" selected>2048</option>
+      <option value="4096">4096</option>
+      <option value="8192">8192</option>
+    </select>
+  </label>
+
+  <label>Speed:
+    <input type="range" id="speed" min="1" max="8" value="2">
+  </label>
+
+  <label>Gain:
+    <input type="range" id="gain" min="0" max="60" value="20">
+  </label>
+
+  <label>
+    <select id="colormap">
+      <option value="magma">Magma</option>
+      <option value="inferno">Inferno</option>
+      <option value="viridis">Viridis</option>
+      <option value="grayscale">Grayscale</option>
+    </select>
+  </label>
+</div>
+
+<div class="canvas-wrap">
+  <canvas id="spectrogram"></canvas>
+  <canvas id="freqAxis"></canvas>
+</div>
+
+<div class="legend">
+  <span>Low</span>
+  <canvas id="colorBar"></canvas>
+  <span>High (dB)</span>
+</div>
+
+<div class="info" id="info">マイクの使用許可を求められたら許可してください</div>
+
+<script>
+const WIDTH = 900;
+const HEIGHT = 512;
+const AXIS_W = 50;
+
+const canvas = document.getElementById('spectrogram');
+const ctx = canvas.getContext('2d');
+canvas.width = WIDTH;
+canvas.height = HEIGHT;
+
+const axisCanvas = document.getElementById('freqAxis');
+const axisCtx = axisCanvas.getContext('2d');
+axisCanvas.width = WIDTH;
+axisCanvas.height = HEIGHT;
+
+const btnStart = document.getElementById('btnStart');
+const btnStop = document.getElementById('btnStop');
+const btnClear = document.getElementById('btnClear');
+const fftSelect = document.getElementById('fftSize');
+const speedSlider = document.getElementById('speed');
+const gainSlider = document.getElementById('gain');
+const colormapSelect = document.getElementById('colormap');
+const info = document.getElementById('info');
+
+let audioCtx, analyser, source, stream;
+let running = false;
+let animId = null;
+let xPos = AXIS_W;
+let frameCount = 0;
+
+// --- Colormaps ---
+function lerp(a, b, t) { return a + (b - a) * t; }
+function lerpColor(c1, c2, t) {
+  return [lerp(c1[0], c2[0], t), lerp(c1[1], c2[1], t), lerp(c1[2], c2[2], t)];
+}
+
+function sampleColormap(stops, t) {
+  t = Math.max(0, Math.min(1, t));
+  for (let i = 0; i < stops.length - 1; i++) {
+    if (t <= stops[i + 1][0]) {
+      const ratio = (t - stops[i][0]) / (stops[i + 1][0] - stops[i][0]);
+      return lerpColor(stops[i][1], stops[i + 1][1], ratio);
+    }
+  }
+  return stops[stops.length - 1][1];
+}
+
+const COLORMAPS = {
+  magma: [
+    [0, [0, 0, 4]], [0.25, [51, 14, 110]], [0.5, [159, 42, 99]],
+    [0.75, [237, 121, 83]], [1, [252, 253, 191]]
+  ],
+  inferno: [
+    [0, [0, 0, 4]], [0.25, [60, 10, 120]], [0.5, [177, 42, 64]],
+    [0.75, [238, 140, 18]], [1, [252, 255, 164]]
+  ],
+  viridis: [
+    [0, [68, 1, 84]], [0.25, [59, 82, 139]], [0.5, [33, 145, 140]],
+    [0.75, [94, 201, 98]], [1, [253, 231, 37]]
+  ],
+  grayscale: [
+    [0, [0, 0, 0]], [1, [255, 255, 255]]
+  ]
+};
+
+// Precompute 256-entry LUT for current colormap
+let colorLUT = new Uint8Array(256 * 3);
+function buildLUT() {
+  const name = colormapSelect.value;
+  const stops = COLORMAPS[name];
+  for (let i = 0; i < 256; i++) {
+    const c = sampleColormap(stops, i / 255);
+    colorLUT[i * 3]     = Math.round(c[0]);
+    colorLUT[i * 3 + 1] = Math.round(c[1]);
+    colorLUT[i * 3 + 2] = Math.round(c[2]);
+  }
+  drawColorBar();
+}
+buildLUT();
+
+function drawColorBar() {
+  const bar = document.getElementById('colorBar');
+  const bctx = bar.getContext('2d');
+  bar.width = 200; bar.height = 14;
+  for (let x = 0; x < 200; x++) {
+    const i = Math.floor((x / 199) * 255) * 3;
+    bctx.fillStyle = `rgb(${colorLUT[i]},${colorLUT[i+1]},${colorLUT[i+2]})`;
+    bctx.fillRect(x, 0, 1, 14);
+  }
+}
+
+colormapSelect.addEventListener('change', buildLUT);
+
+// --- Frequency axis ---
+function drawAxis() {
+  if (!analyser) return;
+  const sr = audioCtx.sampleRate;
+  const maxFreq = sr / 2;
+  axisCtx.clearRect(0, 0, WIDTH, HEIGHT);
+
+  axisCtx.fillStyle = 'rgba(10,10,15,0.85)';
+  axisCtx.fillRect(0, 0, AXIS_W, HEIGHT);
+
+  axisCtx.fillStyle = '#667';
+  axisCtx.font = '11px monospace';
+  axisCtx.textAlign = 'right';
+
+  const freqs = [100, 200, 500, 1000, 2000, 3000, 5000, 8000, 10000, 16000, 20000];
+  for (const f of freqs) {
+    if (f > maxFreq) continue;
+    const y = HEIGHT - (f / maxFreq) * HEIGHT;
+    axisCtx.fillText(f >= 1000 ? (f / 1000) + 'k' : f, AXIS_W - 6, y + 4);
+    axisCtx.strokeStyle = 'rgba(60,60,90,0.4)';
+    axisCtx.beginPath();
+    axisCtx.moveTo(AXIS_W, y);
+    axisCtx.lineTo(WIDTH, y);
+    axisCtx.stroke();
+  }
+
+  // Hz label
+  axisCtx.save();
+  axisCtx.translate(12, HEIGHT / 2);
+  axisCtx.rotate(-Math.PI / 2);
+  axisCtx.fillStyle = '#556';
+  axisCtx.textAlign = 'center';
+  axisCtx.font = '11px sans-serif';
+  axisCtx.fillText('Frequency (Hz)', 0, 0);
+  axisCtx.restore();
+}
+
+// --- Audio setup ---
+async function startAudio() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    info.textContent = 'マイクへのアクセスが拒否されました';
+    return;
+  }
+
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = parseInt(fftSelect.value);
+  analyser.smoothingTimeConstant = 0.3;
+  analyser.minDecibels = -100;
+  analyser.maxDecibels = -10;
+
+  source = audioCtx.createMediaStreamSource(stream);
+  source.connect(analyser);
+
+  running = true;
+  btnStart.disabled = true;
+  btnStart.classList.remove('active');
+  btnStop.disabled = false;
+  btnStop.classList.add('active');
+  fftSelect.disabled = true;
+
+  info.textContent = `Sample Rate: ${audioCtx.sampleRate} Hz | FFT: ${analyser.fftSize} | Bins: ${analyser.frequencyBinCount}`;
+  drawAxis();
+  draw();
+}
+
+function stopAudio() {
+  running = false;
+  if (animId) cancelAnimationFrame(animId);
+  if (source) source.disconnect();
+  if (audioCtx) audioCtx.close();
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  btnStart.disabled = false;
+  btnStop.disabled = true;
+  btnStop.classList.remove('active');
+  fftSelect.disabled = false;
+  info.textContent = '停止しました';
+}
+
+function clearCanvas() {
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  xPos = AXIS_W;
+}
+
+// --- Drawing ---
+function draw() {
+  if (!running) return;
+  animId = requestAnimationFrame(draw);
+
+  frameCount++;
+  const spd = parseInt(speedSlider.value);
+  if (frameCount % Math.max(1, 4 - spd) !== 0) return;
+
+  const bins = analyser.frequencyBinCount;
+  const dataArray = new Uint8Array(bins);
+  analyser.getByteFrequencyData(dataArray);
+
+  const gainBoost = parseInt(gainSlider.value) / 10;
+  const colW = 1;
+
+  const imgData = ctx.createImageData(colW, HEIGHT);
+  const pixels = imgData.data;
+
+  for (let y = 0; y < HEIGHT; y++) {
+    const binIndex = Math.floor(((HEIGHT - 1 - y) / (HEIGHT - 1)) * (bins - 1));
+    let val = dataArray[binIndex] * gainBoost;
+    val = Math.min(255, val);
+    const ci = Math.floor(val) * 3;
+
+    const pi = y * 4;
+    pixels[pi]     = colorLUT[ci];
+    pixels[pi + 1] = colorLUT[ci + 1];
+    pixels[pi + 2] = colorLUT[ci + 2];
+    pixels[pi + 3] = 255;
+  }
+
+  ctx.putImageData(imgData, xPos, 0);
+
+  xPos += colW;
+  if (xPos >= WIDTH) {
+    // Scroll: shift the image left
+    const img = ctx.getImageData(AXIS_W + colW, 0, WIDTH - AXIS_W - colW, HEIGHT);
+    ctx.putImageData(img, AXIS_W, 0);
+    xPos = WIDTH - colW;
+  }
+
+  // Draw time cursor line
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.fillRect(xPos, 0, 1, HEIGHT);
+}
+
+// --- Events ---
+btnStart.addEventListener('click', startAudio);
+btnStop.addEventListener('click', stopAudio);
+btnClear.addEventListener('click', clearCanvas);
+
+fftSelect.addEventListener('change', () => {
+  if (analyser) analyser.fftSize = parseInt(fftSelect.value);
+});
+
+// Init
+clearCanvas();
+</script>
+</body>
+</html>
