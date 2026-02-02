@@ -2,68 +2,77 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>リアルタイム スペクトログラム</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
+  html, body {
     background: #0a0a0f;
     color: #e0e0e0;
     font-family: 'Segoe UI', 'Meiryo', sans-serif;
+    height: 100%;
+    overflow: hidden;
+  }
+  body {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    min-height: 100vh;
-    padding: 20px;
+    padding: 8px;
   }
   h1 {
-    font-size: 1.4rem;
+    font-size: 1rem;
     font-weight: 400;
-    margin-bottom: 16px;
+    text-align: center;
+    margin-bottom: 6px;
     letter-spacing: 0.05em;
     color: #aac;
+    flex-shrink: 0;
   }
   .controls {
     display: flex;
-    gap: 12px;
+    gap: 6px;
     align-items: center;
-    margin-bottom: 16px;
+    margin-bottom: 6px;
     flex-wrap: wrap;
     justify-content: center;
+    flex-shrink: 0;
   }
   button {
     background: #1a1a2e;
     color: #7eb8da;
     border: 1px solid #2a2a4a;
-    padding: 8px 24px;
+    padding: 6px 14px;
     border-radius: 6px;
-    font-size: 0.95rem;
+    font-size: 0.8rem;
     cursor: pointer;
     transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent;
   }
   button:hover { background: #2a2a4e; border-color: #4a4a7a; }
   button.active { background: #1a3a2e; border-color: #3a7a5a; color: #7edaaa; }
   button:disabled { opacity: 0.4; cursor: default; }
   label {
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     color: #889;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
   }
   select, input[type="range"] {
     background: #1a1a2e;
     color: #aac;
     border: 1px solid #2a2a4a;
-    padding: 4px 8px;
+    padding: 3px 6px;
     border-radius: 4px;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
   }
+  input[type="range"] { width: 60px; }
   .canvas-wrap {
     position: relative;
     border: 1px solid #1a1a2e;
-    border-radius: 8px;
+    border-radius: 6px;
     overflow: hidden;
+    flex: 1;
+    min-height: 0;
   }
   canvas { display: block; }
   #freqAxis {
@@ -72,24 +81,33 @@
     left: 0;
     pointer-events: none;
   }
+  .bottom-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 4px;
+    flex-shrink: 0;
+  }
   .legend {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-top: 12px;
-    font-size: 0.8rem;
+    gap: 6px;
+    font-size: 0.7rem;
     color: #778;
   }
   #colorBar {
-    width: 200px;
-    height: 14px;
+    width: 100px;
+    height: 10px;
     border-radius: 3px;
   }
   .info {
-    margin-top: 10px;
-    font-size: 0.78rem;
+    font-size: 0.65rem;
     color: #556;
     text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 </style>
 </head>
@@ -111,51 +129,38 @@
     </select>
   </label>
 
-  <label>Speed:
-    <input type="range" id="speed" min="1" max="8" value="2">
-  </label>
+  <label>Spd<input type="range" id="speed" min="1" max="8" value="2"></label>
+  <label>Gain<input type="range" id="gain" min="0" max="60" value="20"></label>
 
-  <label>Gain:
-    <input type="range" id="gain" min="0" max="60" value="20">
-  </label>
-
-  <label>
-    <select id="colormap">
-      <option value="magma">Magma</option>
-      <option value="inferno">Inferno</option>
-      <option value="viridis">Viridis</option>
-      <option value="grayscale">Grayscale</option>
-    </select>
-  </label>
+  <select id="colormap">
+    <option value="magma">Magma</option>
+    <option value="inferno">Inferno</option>
+    <option value="viridis">Viridis</option>
+    <option value="grayscale">Gray</option>
+  </select>
 </div>
 
-<div class="canvas-wrap">
+<div class="canvas-wrap" id="canvasWrap">
   <canvas id="spectrogram"></canvas>
   <canvas id="freqAxis"></canvas>
 </div>
 
-<div class="legend">
-  <span>Low</span>
-  <canvas id="colorBar"></canvas>
-  <span>High (dB)</span>
+<div class="bottom-bar">
+  <div class="legend">
+    <span>Low</span>
+    <canvas id="colorBar"></canvas>
+    <span>High</span>
+  </div>
+  <div class="info" id="info">マイクの使用許可を求められたら許可してください</div>
 </div>
 
-<div class="info" id="info">マイクの使用許可を求められたら許可してください</div>
-
 <script>
-const WIDTH = 900;
-const HEIGHT = 512;
-const AXIS_W = 50;
-
+const AXIS_W = 36;
 const canvas = document.getElementById('spectrogram');
 const ctx = canvas.getContext('2d');
-canvas.width = WIDTH;
-canvas.height = HEIGHT;
-
 const axisCanvas = document.getElementById('freqAxis');
 const axisCtx = axisCanvas.getContext('2d');
-axisCanvas.width = WIDTH;
-axisCanvas.height = HEIGHT;
+const canvasWrap = document.getElementById('canvasWrap');
 
 const btnStart = document.getElementById('btnStart');
 const btnStop = document.getElementById('btnStop');
@@ -171,6 +176,48 @@ let running = false;
 let animId = null;
 let xPos = AXIS_W;
 let frameCount = 0;
+let W, H;
+
+// --- Responsive canvas sizing ---
+function resizeCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvasWrap.getBoundingClientRect();
+  W = Math.floor(rect.width);
+  H = Math.floor(rect.height);
+
+  // Save current image before resize
+  let savedImage = null;
+  try {
+    savedImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  } catch(e) {}
+
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  canvas.width = W;
+  canvas.height = H;
+
+  axisCanvas.style.width = W + 'px';
+  axisCanvas.style.height = H + 'px';
+  axisCanvas.width = W;
+  axisCanvas.height = H;
+
+  // Restore image (best effort)
+  if (savedImage) {
+    try { ctx.putImageData(savedImage, 0, 0); } catch(e) {}
+  }
+
+  xPos = Math.min(xPos, W - 1);
+  if (xPos < AXIS_W) xPos = AXIS_W;
+
+  drawAxis();
+}
+
+// Debounced resize
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(resizeCanvas, 150);
+});
 
 // --- Colormaps ---
 function lerp(a, b, t) { return a + (b - a) * t; }
@@ -191,32 +238,30 @@ function sampleColormap(stops, t) {
 
 const COLORMAPS = {
   magma: [
-    [0, [0, 0, 4]], [0.25, [51, 14, 110]], [0.5, [159, 42, 99]],
-    [0.75, [237, 121, 83]], [1, [252, 253, 191]]
+    [0,[0,0,4]],[0.25,[51,14,110]],[0.5,[159,42,99]],
+    [0.75,[237,121,83]],[1,[252,253,191]]
   ],
   inferno: [
-    [0, [0, 0, 4]], [0.25, [60, 10, 120]], [0.5, [177, 42, 64]],
-    [0.75, [238, 140, 18]], [1, [252, 255, 164]]
+    [0,[0,0,4]],[0.25,[60,10,120]],[0.5,[177,42,64]],
+    [0.75,[238,140,18]],[1,[252,255,164]]
   ],
   viridis: [
-    [0, [68, 1, 84]], [0.25, [59, 82, 139]], [0.5, [33, 145, 140]],
-    [0.75, [94, 201, 98]], [1, [253, 231, 37]]
+    [0,[68,1,84]],[0.25,[59,82,139]],[0.5,[33,145,140]],
+    [0.75,[94,201,98]],[1,[253,231,37]]
   ],
   grayscale: [
-    [0, [0, 0, 0]], [1, [255, 255, 255]]
+    [0,[0,0,0]],[1,[255,255,255]]
   ]
 };
 
-// Precompute 256-entry LUT for current colormap
 let colorLUT = new Uint8Array(256 * 3);
 function buildLUT() {
-  const name = colormapSelect.value;
-  const stops = COLORMAPS[name];
+  const stops = COLORMAPS[colormapSelect.value];
   for (let i = 0; i < 256; i++) {
     const c = sampleColormap(stops, i / 255);
-    colorLUT[i * 3]     = Math.round(c[0]);
-    colorLUT[i * 3 + 1] = Math.round(c[1]);
-    colorLUT[i * 3 + 2] = Math.round(c[2]);
+    colorLUT[i*3]   = Math.round(c[0]);
+    colorLUT[i*3+1] = Math.round(c[1]);
+    colorLUT[i*3+2] = Math.round(c[2]);
   }
   drawColorBar();
 }
@@ -225,11 +270,11 @@ buildLUT();
 function drawColorBar() {
   const bar = document.getElementById('colorBar');
   const bctx = bar.getContext('2d');
-  bar.width = 200; bar.height = 14;
-  for (let x = 0; x < 200; x++) {
-    const i = Math.floor((x / 199) * 255) * 3;
+  bar.width = 100; bar.height = 10;
+  for (let x = 0; x < 100; x++) {
+    const i = Math.floor((x / 99) * 255) * 3;
     bctx.fillStyle = `rgb(${colorLUT[i]},${colorLUT[i+1]},${colorLUT[i+2]})`;
-    bctx.fillRect(x, 0, 1, 14);
+    bctx.fillRect(x, 0, 1, 10);
   }
 }
 
@@ -237,46 +282,45 @@ colormapSelect.addEventListener('change', buildLUT);
 
 // --- Frequency axis ---
 function drawAxis() {
-  if (!analyser) return;
+  if (!analyser || !W || !H) return;
   const sr = audioCtx.sampleRate;
   const maxFreq = sr / 2;
-  axisCtx.clearRect(0, 0, WIDTH, HEIGHT);
+  axisCtx.clearRect(0, 0, W, H);
 
   axisCtx.fillStyle = 'rgba(10,10,15,0.85)';
-  axisCtx.fillRect(0, 0, AXIS_W, HEIGHT);
+  axisCtx.fillRect(0, 0, AXIS_W, H);
 
   axisCtx.fillStyle = '#667';
-  axisCtx.font = '11px monospace';
+  axisCtx.font = '10px monospace';
   axisCtx.textAlign = 'right';
 
-  const freqs = [100, 200, 500, 1000, 2000, 3000, 5000, 8000, 10000, 16000, 20000];
+  const freqs = [200, 500, 1000, 2000, 4000, 8000, 16000];
   for (const f of freqs) {
     if (f > maxFreq) continue;
-    const y = HEIGHT - (f / maxFreq) * HEIGHT;
-    axisCtx.fillText(f >= 1000 ? (f / 1000) + 'k' : f, AXIS_W - 6, y + 4);
-    axisCtx.strokeStyle = 'rgba(60,60,90,0.4)';
+    const y = H - (f / maxFreq) * H;
+    axisCtx.fillText(f >= 1000 ? (f/1000)+'k' : f, AXIS_W - 4, y + 3);
+    axisCtx.strokeStyle = 'rgba(60,60,90,0.35)';
     axisCtx.beginPath();
     axisCtx.moveTo(AXIS_W, y);
-    axisCtx.lineTo(WIDTH, y);
+    axisCtx.lineTo(W, y);
     axisCtx.stroke();
   }
 
-  // Hz label
   axisCtx.save();
-  axisCtx.translate(12, HEIGHT / 2);
+  axisCtx.translate(9, H / 2);
   axisCtx.rotate(-Math.PI / 2);
-  axisCtx.fillStyle = '#556';
+  axisCtx.fillStyle = '#445';
   axisCtx.textAlign = 'center';
-  axisCtx.font = '11px sans-serif';
-  axisCtx.fillText('Frequency (Hz)', 0, 0);
+  axisCtx.font = '9px sans-serif';
+  axisCtx.fillText('Hz', 0, 0);
   axisCtx.restore();
 }
 
-// --- Audio setup ---
+// --- Audio ---
 async function startAudio() {
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  } catch (e) {
+  } catch(e) {
     info.textContent = 'マイクへのアクセスが拒否されました';
     return;
   }
@@ -298,8 +342,8 @@ async function startAudio() {
   btnStop.classList.add('active');
   fftSelect.disabled = true;
 
-  info.textContent = `Sample Rate: ${audioCtx.sampleRate} Hz | FFT: ${analyser.fftSize} | Bins: ${analyser.frequencyBinCount}`;
-  drawAxis();
+  info.textContent = `${audioCtx.sampleRate}Hz | FFT:${analyser.fftSize}`;
+  resizeCanvas();
   draw();
 }
 
@@ -318,7 +362,7 @@ function stopAudio() {
 
 function clearCanvas() {
   ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  ctx.fillRect(0, 0, W || canvas.width, H || canvas.height);
   xPos = AXIS_W;
 }
 
@@ -336,49 +380,44 @@ function draw() {
   analyser.getByteFrequencyData(dataArray);
 
   const gainBoost = parseInt(gainSlider.value) / 10;
-  const colW = 1;
 
-  const imgData = ctx.createImageData(colW, HEIGHT);
+  const imgData = ctx.createImageData(1, H);
   const pixels = imgData.data;
 
-  for (let y = 0; y < HEIGHT; y++) {
-    const binIndex = Math.floor(((HEIGHT - 1 - y) / (HEIGHT - 1)) * (bins - 1));
-    let val = dataArray[binIndex] * gainBoost;
-    val = Math.min(255, val);
+  for (let y = 0; y < H; y++) {
+    const binIndex = Math.floor(((H - 1 - y) / (H - 1)) * (bins - 1));
+    let val = Math.min(255, dataArray[binIndex] * gainBoost);
     const ci = Math.floor(val) * 3;
-
     const pi = y * 4;
-    pixels[pi]     = colorLUT[ci];
-    pixels[pi + 1] = colorLUT[ci + 1];
-    pixels[pi + 2] = colorLUT[ci + 2];
-    pixels[pi + 3] = 255;
+    pixels[pi]   = colorLUT[ci];
+    pixels[pi+1] = colorLUT[ci+1];
+    pixels[pi+2] = colorLUT[ci+2];
+    pixels[pi+3] = 255;
   }
 
   ctx.putImageData(imgData, xPos, 0);
 
-  xPos += colW;
-  if (xPos >= WIDTH) {
-    // Scroll: shift the image left
-    const img = ctx.getImageData(AXIS_W + colW, 0, WIDTH - AXIS_W - colW, HEIGHT);
+  xPos++;
+  if (xPos >= W) {
+    const img = ctx.getImageData(AXIS_W + 1, 0, W - AXIS_W - 1, H);
     ctx.putImageData(img, AXIS_W, 0);
-    xPos = WIDTH - colW;
+    xPos = W - 1;
   }
 
-  // Draw time cursor line
-  ctx.fillStyle = 'rgba(255,255,255,0.6)';
-  ctx.fillRect(xPos, 0, 1, HEIGHT);
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.fillRect(xPos, 0, 1, H);
 }
 
 // --- Events ---
 btnStart.addEventListener('click', startAudio);
 btnStop.addEventListener('click', stopAudio);
 btnClear.addEventListener('click', clearCanvas);
-
 fftSelect.addEventListener('change', () => {
   if (analyser) analyser.fftSize = parseInt(fftSelect.value);
 });
 
-// Init
+// --- Init ---
+resizeCanvas();
 clearCanvas();
 </script>
 </body>
