@@ -36,22 +36,23 @@
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ@#$%^&*()';
+        const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ@#$%^&*()';
         const charArray = chars.split('');
 
         const fontSize = 16;
         const columns = Math.floor(canvas.width / fontSize);
 
         const drops = [];
+        const speeds = [];
         for (let i = 0; i < columns; i++) {
             drops[i] = Math.random() * -100;
+            speeds[i] = 0.2 + Math.random() * 1.3; // 0.5〜1.5のランダムな速度
         }
 
         function draw() {
             ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            ctx.fillStyle = '#0f0';
             ctx.font = fontSize + 'px monospace';
 
             for (let i = 0; i < drops.length; i++) {
@@ -59,27 +60,26 @@
                 const x = i * fontSize;
                 const y = drops[i] * fontSize;
 
-                // 先頭の文字は明るく
-                if (drops[i] > 0) {
-                    ctx.fillStyle = '#fff';
-                    ctx.fillText(char, x, y);
-
-                    // 少し上の文字は通常の緑
-                    ctx.fillStyle = '#0f0';
-                    const prevChar = charArray[Math.floor(Math.random() * charArray.length)];
-                    if (drops[i] > 1) {
-                        ctx.fillText(prevChar, x, y - fontSize);
-                    }
-                }
-
-                ctx.fillStyle = '#0f0';
+                // 先頭の文字は白く発光
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = '#fff';
+                ctx.fillStyle = '#fff';
                 ctx.fillText(char, x, y);
+
+                // 発光効果をリセットして、1つ上に緑の文字を描画
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = '#0f0';
+                if (drops[i] > 1) {
+                    const prevChar = charArray[Math.floor(Math.random() * charArray.length)];
+                    ctx.fillText(prevChar, x, y - fontSize);
+                }
 
                 if (y > canvas.height && Math.random() > 0.975) {
                     drops[i] = 0;
+                    speeds[i] = 0.2 + Math.random() * 1.3; // リセット時に新しい速度を設定
                 }
 
-                drops[i]++;
+                drops[i] += speeds[i];
             }
         }
 
