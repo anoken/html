@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>台車型倒立振子シミュレーション</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            min-height: 100dvh;
+            overflow-x: hidden;
+        }
+        .header {
+            background: #fff;
+            padding: 12px 16px;
+            border-bottom: 1px solid #ddd;
+            text-align: center;
+        }
+        .header h1 { font-size: 1rem; font-weight: 700; }
+        .header .eq { font-size: 0.7rem; color: #888; margin-top: 2px; }
+
+        .sensor-start {
+            display: block;
+            width: calc(100% - 32px);
+            margin: 12px auto;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            background: #4CAF50;
+            color: #fff;
+            transition: background 0.2s;
+        }
+        .sensor-start.active { background: #f44336; }
+        .sensor-status {
+            text-align: center;
+            font-size: 0.8rem;
+            color: #888;
+            padding: 4px 0 8px;
+        }
+        .sensor-status.ok { color: #4CAF50; }
+        .sensor-status.warn { color: #ff9800; }
+        .sensor-status.err { color: #f44336; }
+
+        .canvas-wrap {
+            background: #fff;
+            margin: 0 8px 8px;
+            border-radius: 10px;
+            border: 1px solid #e0e0e0;
+            overflow: hidden;
+            position: relative;
+        }
+        canvas { display: block; width: 100%; background: #fff; }
+
+        .readout { display: flex; gap: 6px; margin: 0 8px 8px; }
+        .readout-item {
+            flex: 1;
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 10px 8px;
+            text-align: center;
+        }
+        .readout-label { font-size: 0.65rem; color: #888; margin-bottom: 2px; }
+        .readout-val {
+            font-size: 1.1rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+        .readout-unit { font-size: 0.6rem; color: #aaa; font-weight: 400; }
+
+        .btn-row { display: flex; gap: 8px; margin: 0 8px 8px; }
+        .btn-row button {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            background: #fff;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            color: #333;
+        }
+        .btn-row button:active { background: #eee; }
+
+        .settings-toggle {
+            display: block;
+            width: calc(100% - 16px);
+            margin: 0 8px 8px;
+            padding: 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            background: #fff;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            color: #555;
+            text-align: left;
+        }
+        .settings-toggle::after { content: ' ▼'; float: right; }
+        .settings-toggle.open::after { content: ' ▲'; }
+        .settings-panel {
+            display: none;
+            margin: 0 8px 8px;
+            padding: 16px;
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+        }
+        .settings-panel.open { display: block; }
+        .ctrl { margin-bottom: 14px; }
+        .ctrl:last-child { margin-bottom: 0; }
+        .ctrl label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: #555;
+            margin-bottom: 4px;
+        }
+        .ctrl label span { color: #999; font-variant-numeric: tabular-nums; }
+        .ctrl input[type="range"] { width: 100%; cursor: pointer; }
+
+        /* タイマー大表示 */
+        .timer-display {
+            text-align: center;
+            margin: 0 8px 8px;
+            padding: 12px;
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+        }
+        .timer-display .timer-label { font-size: 0.75rem; color: #888; }
+        .timer-display .timer-val {
+            font-size: 2.2rem;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+            color: #333;
+        }
+        .timer-display .timer-unit { font-size: 0.8rem; color: #aaa; }
+
+        /* ゲームオーバー */
+        .overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+        }
+        .overlay.show { display: flex; }
+        .overlay-box {
+            background: #fff;
+            border-radius: 16px;
+            padding: 32px 28px;
+            text-align: center;
+            max-width: 320px;
+            width: 90%;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .overlay-box h2 {
+            font-size: 1.3rem;
+            margin-bottom: 8px;
+            color: #f44336;
+        }
+        .overlay-box .result-time {
+            font-size: 3rem;
+            font-weight: 800;
+            color: #333;
+            margin: 12px 0;
+            font-variant-numeric: tabular-nums;
+        }
+        .overlay-box .result-unit {
+            font-size: 1rem;
+            color: #888;
+        }
+        .overlay-box .result-msg {
+            font-size: 0.85rem;
+            color: #666;
+            margin: 8px 0 20px;
+        }
+        .overlay-box button {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            background: #4CAF50;
+            color: #fff;
+        }
+
+        /* ベストスコア */
+        .best-score {
+            text-align: center;
+            margin: 0 8px 8px;
+            padding: 8px;
+            background: #fff8e1;
+            border: 1px solid #ffe082;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            color: #f57f17;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>台車型倒立振子バランスゲーム</h1>
+    <div class="eq">Lθ̈ = g sinθ − a cosθ − μθ̇</div>
+</div>
+
+<button class="sensor-start" id="sensorBtn">&#9654; センサーを起動してスタート</button>
+<div class="sensor-status" id="sensorStatus">スマホを傾けて台車を操作し、振子を立て続けよう</div>
+
+<div class="timer-display">
+    <div class="timer-label">経過時間</div>
+    <div class="timer-val"><span id="timerVal">0.00</span><span class="timer-unit"> 秒</span></div>
+</div>
+
+<div class="best-score" id="bestScoreBar">ベスト記録: --</div>
+
+<div class="canvas-wrap">
+    <canvas id="mainCanvas" height="320"></canvas>
+</div>
+
+<div class="readout">
+    <div class="readout-item">
+        <div class="readout-label">台車位置</div>
+        <div class="readout-val"><span id="valCart">0.0</span><span class="readout-unit"> cm</span></div>
+    </div>
+    <div class="readout-item">
+        <div class="readout-label">振子角度</div>
+        <div class="readout-val"><span id="valAngle">0.0</span><span class="readout-unit"> °</span></div>
+    </div>
+    <div class="readout-item">
+        <div class="readout-label">加速度入力</div>
+        <div class="readout-val"><span id="valAccel">0.0</span><span class="readout-unit"> m/s²</span></div>
+    </div>
+</div>
+
+<div class="btn-row">
+    <button id="resetBtn">リセット</button>
+    <button id="pauseBtn">一時停止</button>
+</div>
+
+<button class="settings-toggle" id="settingsToggle">パラメータ設定</button>
+<div class="settings-panel" id="settingsPanel">
+    <div class="ctrl">
+        <label>振子の長さ L <span id="lengthValue">1.0 m</span></label>
+        <input type="range" id="pendLength" min="0.3" max="3.0" step="0.1" value="1.0">
+    </div>
+    <div class="ctrl">
+        <label>空気抵抗 μ <span id="dampValue">0.30</span></label>
+        <input type="range" id="damping" min="0" max="1.0" step="0.01" value="0.30">
+    </div>
+    <div class="ctrl">
+        <label>センサー感度 <span id="sensValue">5.0</span></label>
+        <input type="range" id="sensitivity" min="0.5" max="12.0" step="0.5" value="5.0">
+    </div>
+    <div class="ctrl">
+        <label>入力軸</label>
+        <select id="sensorAxis">
+            <option value="x">X軸（左右）</option>
+            <option value="y" selected>Y軸（前後）</option>
+            <option value="z">Z軸（上下）</option>
+        </select>
+    </div>
+    <div class="ctrl">
+        <label>転倒判定角度 <span id="fallAngleValue">90°</span></label>
+        <input type="range" id="fallAngle" min="20" max="120" step="5" value="90">
+    </div>
+    <div class="ctrl">
+        <label>初期角度 <span id="initAngleValue">1°</span></label>
+        <input type="range" id="initAngle" min="1" max="15" step="1" value="1">
+    </div>
+</div>
+
+<!-- ゲームオーバー -->
+<div class="overlay" id="overlay">
+    <div class="overlay-box">
+        <h2>倒れた！</h2>
+        <div class="result-time" id="resultTime">0.00</div>
+        <div class="result-unit">秒</div>
+        <div class="result-msg" id="resultMsg"></div>
+        <button id="retryBtn">もう一度チャレンジ</button>
+    </div>
+</div>
+
+<script>
+// --- キャンバス設定 ---
+const mainCanvas = document.getElementById('mainCanvas');
+const ctx = mainCanvas.getContext('2d');
+const CANVAS_H = 320;
+
+function fitCanvas() {
+    const rect = mainCanvas.parentElement.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    mainCanvas.width = rect.width * dpr;
+    mainCanvas.height = CANVAS_H * dpr;
+    mainCanvas.style.height = CANVAS_H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+fitCanvas();
+window.addEventListener('resize', fitCanvas);
+
+// --- パラメータ ---
+let L = 1.0;           // 振子長さ (m)
+let mu = 0.30;         // 空気抵抗係数 大きい方がゆっくり
+let sensitivity = 5.0; // センサー感度 高い方が操作しやすい
+let fallAngleDeg = 90; // 転倒判定角度 90°=水平で転倒
+let initAngleDeg = 1;  // 初期角度 小さい方がやさしい
+const g = 9.81;
+
+// --- 状態変数 ---
+let theta = 0;       // 振子角度 (rad) 0=直立
+let thetaDot = 0;    // 角速度
+let cartX = 0;       // 台車位置 (m)
+let cartV = 0;       // 台車速度
+let cartAccel = 0;   // 台車加速度 (センサー入力)
+let simTime = 0;
+let gameState = 'idle'; // idle | running | paused | fallen
+let bestTime = parseFloat(localStorage.getItem('invertedPendulumBest') || '0');
+
+// --- 加速度センサー ---
+let sensorActive = false;
+let sensorAccel = { x: 0, y: 0, z: 0 };
+let sensorAxis = 'y';
+
+const $ = id => document.getElementById(id);
+
+// ベストスコア表示更新
+function updateBestScore() {
+    $('bestScoreBar').textContent = bestTime > 0
+        ? 'ベスト記録: ' + bestTime.toFixed(2) + ' 秒'
+        : 'ベスト記録: --';
+}
+updateBestScore();
+
+// --- センサー制御 ---
+function handleSensorMotion(event) {
+    const acc = event.accelerationIncludingGravity || {};
+    sensorAccel.x = acc.x ?? 0;
+    sensorAccel.y = acc.y ?? 0;
+    sensorAccel.z = acc.z ?? 0;
+    if (!sensorActive) {
+        sensorActive = true;
+        $('sensorStatus').textContent = 'センサー計測中';
+        $('sensorStatus').className = 'sensor-status ok';
+    }
+}
+
+async function toggleSensor() {
+    if ($('sensorBtn').classList.contains('active')) {
+        window.removeEventListener('devicemotion', handleSensorMotion);
+        sensorActive = false;
+        sensorAccel = { x: 0, y: 0, z: 0 };
+        $('sensorBtn').classList.remove('active');
+        $('sensorBtn').textContent = '\u25B6 センサーを起動してスタート';
+        $('sensorStatus').textContent = '停止中';
+        $('sensorStatus').className = 'sensor-status';
+        gameState = 'idle';
+        return;
+    }
+    if (!('DeviceMotionEvent' in window)) {
+        $('sensorStatus').textContent = 'このブラウザは加速度センサー非対応です';
+        $('sensorStatus').className = 'sensor-status err';
+        return;
+    }
+    if (typeof DeviceMotionEvent.requestPermission === 'function') {
+        try {
+            const perm = await DeviceMotionEvent.requestPermission();
+            if (perm !== 'granted') {
+                $('sensorStatus').textContent = 'センサーアクセスが拒否されました';
+                $('sensorStatus').className = 'sensor-status err';
+                return;
+            }
+        } catch (e) {
+            $('sensorStatus').textContent = '権限リクエスト失敗: ' + e.message;
+            $('sensorStatus').className = 'sensor-status err';
+            return;
+        }
+    }
+    window.addEventListener('devicemotion', handleSensorMotion);
+    $('sensorBtn').classList.add('active');
+    $('sensorBtn').textContent = '\u25A0 センサーを停止';
+    $('sensorStatus').textContent = 'センサー起動中...';
+    $('sensorStatus').className = 'sensor-status warn';
+
+    setTimeout(() => {
+        if (!sensorActive) {
+            $('sensorStatus').textContent = 'データ受信なし。HTTPS環境のスマホでアクセスしてください';
+            $('sensorStatus').className = 'sensor-status err';
+        }
+    }, 2000);
+
+    // ゲーム開始
+    resetGame();
+    gameState = 'running';
+}
+$('sensorBtn').addEventListener('click', toggleSensor);
+
+// --- PC用キーボード操作 ---
+let keyLeft = false, keyRight = false;
+window.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft') keyLeft = true;
+    if (e.key === 'ArrowRight') keyRight = true;
+    if (e.key === ' ' && gameState === 'idle') {
+        resetGame();
+        gameState = 'running';
+    }
+});
+window.addEventListener('keyup', e => {
+    if (e.key === 'ArrowLeft') keyLeft = false;
+    if (e.key === 'ArrowRight') keyRight = false;
+});
+
+// --- ゲームリセット ---
+function resetGame() {
+    const initRad = initAngleDeg * Math.PI / 180;
+    theta = (Math.random() > 0.5 ? 1 : -1) * initRad;
+    thetaDot = 0;
+    cartX = 0;
+    cartV = 0;
+    cartAccel = 0;
+    simTime = 0;
+    $('timerVal').textContent = '0.00';
+    $('overlay').classList.remove('show');
+}
+
+// --- 物理シミュレーション (RK4) ---
+function simulate(dt) {
+    // センサー入力 → 台車加速度
+    let accelInput = 0;
+    if (sensorActive) {
+        if (sensorAxis === 'x') accelInput = sensorAccel.x;
+        else if (sensorAxis === 'y') accelInput = sensorAccel.y;
+        else accelInput = sensorAccel.z - 9.81;
+        accelInput *= sensitivity;
+    }
+    // キーボード入力
+    if (keyLeft) accelInput -= 15;
+    if (keyRight) accelInput += 15;
+
+    cartAccel = accelInput;
+
+    // 台車の運動（加速度入力 + 摩擦で減速）
+    cartV += cartAccel * dt;
+    cartV *= 0.98; // 摩擦
+    cartX += cartV * dt;
+
+    // 台車を画面内に制限
+    const cartLimit = 2.0; // ±2m
+    if (cartX > cartLimit) { cartX = cartLimit; cartV = 0; }
+    if (cartX < -cartLimit) { cartX = -cartLimit; cartV = 0; }
+
+    // 倒立振子の運動方程式 (RK4)
+    // θ̈ = (g sinθ − a cosθ − μ θ̇) / L
+    function thetaAccel(th, thd) {
+        return (g * Math.sin(th) - cartAccel * Math.cos(th) - mu * thd) / L;
+    }
+
+    const k1t = thetaDot;
+    const k1w = thetaAccel(theta, thetaDot);
+    const k2t = thetaDot + k1w * dt / 2;
+    const k2w = thetaAccel(theta + k1t * dt / 2, thetaDot + k1w * dt / 2);
+    const k3t = thetaDot + k2w * dt / 2;
+    const k3w = thetaAccel(theta + k2t * dt / 2, thetaDot + k2w * dt / 2);
+    const k4t = thetaDot + k3w * dt;
+    const k4w = thetaAccel(theta + k3t * dt, thetaDot + k3w * dt);
+
+    theta += (k1t + 2 * k2t + 2 * k3t + k4t) * dt / 6;
+    thetaDot += (k1w + 2 * k2w + 2 * k3w + k4w) * dt / 6;
+
+    simTime += dt;
+
+    // 転倒判定
+    const fallRad = fallAngleDeg * Math.PI / 180;
+    if (Math.abs(theta) > fallRad) {
+        return true; // 転倒
+    }
+    return false;
+}
+
+// --- 描画 ---
+function draw() {
+    const W = mainCanvas.width / (window.devicePixelRatio || 1);
+    const H = CANVAS_H;
+    ctx.clearRect(0, 0, W, H);
+
+    const centerX = W / 2;
+    const groundY = H - 50;
+    const scale = W / 5; // 1m = scale px
+
+    // 地面
+    ctx.fillStyle = '#f0f0f0';
+    ctx.fillRect(0, groundY, W, H - groundY);
+    ctx.strokeStyle = '#ccc';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, groundY);
+    ctx.lineTo(W, groundY);
+    ctx.stroke();
+
+    // グリッド線（1mごと）
+    ctx.strokeStyle = '#eee';
+    ctx.lineWidth = 0.5;
+    for (let i = -3; i <= 3; i++) {
+        const gx = centerX + i * scale;
+        ctx.beginPath();
+        ctx.moveTo(gx, 0);
+        ctx.lineTo(gx, groundY);
+        ctx.stroke();
+    }
+
+    // 目盛り
+    ctx.fillStyle = '#ccc';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    for (let i = -2; i <= 2; i++) {
+        ctx.fillText(i + 'm', centerX + i * scale, groundY + 14);
+    }
+
+    // --- 台車 ---
+    const cartPxX = centerX + cartX * scale;
+    const cartW = 70, cartH = 30;
+    const wheelR = 8;
+
+    // 車輪
+    ctx.fillStyle = '#555';
+    ctx.beginPath();
+    ctx.arc(cartPxX - cartW / 3, groundY - wheelR, wheelR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cartPxX + cartW / 3, groundY - wheelR, wheelR, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 本体
+    const cartTop = groundY - wheelR * 2 - cartH;
+    ctx.fillStyle = '#607D8B';
+    ctx.strokeStyle = '#37474F';
+    ctx.lineWidth = 2;
+    roundRect(ctx, cartPxX - cartW / 2, cartTop, cartW, cartH, 5);
+    ctx.fill();
+    ctx.stroke();
+
+    // 台車ラベル
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('M', cartPxX, cartTop + cartH / 2 + 4);
+
+    // --- 振子 ---
+    const pivotX = cartPxX;
+    const pivotY = cartTop;
+    const pendLen = L * scale * 0.7; // 表示用スケール
+
+    // 振子先端（質量）の位置
+    const bobX = pivotX + pendLen * Math.sin(theta);
+    const bobY = pivotY - pendLen * Math.cos(theta);
+
+    // 棒
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(pivotX, pivotY);
+    ctx.lineTo(bobX, bobY);
+    ctx.stroke();
+
+    // ピボット点
+    ctx.fillStyle = '#333';
+    ctx.beginPath();
+    ctx.arc(pivotX, pivotY, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 質量（ボブ）
+    const bobR = 14;
+    ctx.fillStyle = '#E53935';
+    ctx.strokeStyle = '#B71C1C';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(bobX, bobY, bobR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('m', bobX, bobY + 4);
+
+    // --- 角度表示の弧 ---
+    if (Math.abs(theta) > 0.02) {
+        const arcR = 30;
+        ctx.strokeStyle = theta > 0 ? '#ff5722' : '#2196F3';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 3]);
+        // 直立の基準線
+        ctx.beginPath();
+        ctx.moveTo(pivotX, pivotY);
+        ctx.lineTo(pivotX, pivotY - arcR - 10);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        // 弧
+        ctx.beginPath();
+        const startAngle = -Math.PI / 2;
+        const endAngle = -Math.PI / 2 + theta;
+        ctx.arc(pivotX, pivotY, arcR, Math.min(startAngle, endAngle), Math.max(startAngle, endAngle));
+        ctx.stroke();
+    }
+
+    // --- 加速度入力表示（矢印） ---
+    if (Math.abs(cartAccel) > 0.5) {
+        const arrowLen = Math.min(Math.abs(cartAccel) * 4, 50);
+        const arrowDir = cartAccel > 0 ? 1 : -1;
+        const arrowY = cartTop + cartH / 2;
+        const arrowStartX = cartPxX + arrowDir * (cartW / 2 + 5);
+        const arrowEndX = arrowStartX + arrowDir * arrowLen;
+
+        ctx.strokeStyle = '#FF9800';
+        ctx.fillStyle = '#FF9800';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(arrowStartX, arrowY);
+        ctx.lineTo(arrowEndX, arrowY);
+        ctx.stroke();
+        // 矢じり
+        ctx.beginPath();
+        ctx.moveTo(arrowEndX, arrowY);
+        ctx.lineTo(arrowEndX - arrowDir * 8, arrowY - 5);
+        ctx.lineTo(arrowEndX - arrowDir * 8, arrowY + 5);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = '#FF9800';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('a', arrowStartX + arrowDir * arrowLen / 2, arrowY - 10);
+    }
+
+    // --- ゲーム状態表示 ---
+    if (gameState === 'idle') {
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('センサーを起動してスタート', centerX, H / 2 - 10);
+        ctx.font = '12px sans-serif';
+        ctx.fillText('（PCの場合は←→キーで操作、スペースでスタート）', centerX, H / 2 + 14);
+    }
+
+    if (gameState === 'paused') {
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 18px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('一時停止中', centerX, H / 2);
+    }
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+}
+
+// --- 転倒処理 ---
+function onFallen() {
+    gameState = 'fallen';
+    const time = simTime;
+
+    // ベスト更新チェック
+    let isNewBest = false;
+    if (time > bestTime) {
+        bestTime = time;
+        localStorage.setItem('invertedPendulumBest', bestTime.toString());
+        isNewBest = true;
+        updateBestScore();
+    }
+
+    $('resultTime').textContent = time.toFixed(2);
+
+    let msg = '';
+    if (isNewBest) {
+        msg = '新記録！ ベスト更新！';
+        $('overlay').querySelector('h2').textContent = '新記録！';
+        $('overlay').querySelector('h2').style.color = '#FF9800';
+    } else {
+        $('overlay').querySelector('h2').textContent = '倒れた！';
+        $('overlay').querySelector('h2').style.color = '#f44336';
+        if (time < 1) msg = 'もう少しがんばろう！';
+        else if (time < 3) msg = 'いい感じ！もっと長く保てるかも？';
+        else if (time < 10) msg = 'なかなかの腕前！';
+        else if (time < 30) msg = 'すごい！安定してます！';
+        else msg = '達人レベル！';
+    }
+    $('resultMsg').textContent = msg;
+    $('overlay').classList.add('show');
+}
+
+// --- UI イベント ---
+$('resetBtn').addEventListener('click', () => {
+    resetGame();
+    if (sensorActive || keyLeft || keyRight) {
+        gameState = 'running';
+    } else {
+        gameState = 'idle';
+    }
+});
+
+$('pauseBtn').addEventListener('click', () => {
+    if (gameState === 'running') {
+        gameState = 'paused';
+        $('pauseBtn').textContent = '再開';
+    } else if (gameState === 'paused') {
+        gameState = 'running';
+        $('pauseBtn').textContent = '一時停止';
+    }
+});
+
+$('retryBtn').addEventListener('click', () => {
+    resetGame();
+    gameState = 'running';
+});
+
+$('settingsToggle').addEventListener('click', () => {
+    $('settingsToggle').classList.toggle('open');
+    $('settingsPanel').classList.toggle('open');
+});
+
+$('pendLength').addEventListener('input', e => {
+    L = parseFloat(e.target.value);
+    $('lengthValue').textContent = L.toFixed(1) + ' m';
+});
+$('damping').addEventListener('input', e => {
+    mu = parseFloat(e.target.value);
+    $('dampValue').textContent = mu.toFixed(2);
+});
+$('sensitivity').addEventListener('input', e => {
+    sensitivity = parseFloat(e.target.value);
+    $('sensValue').textContent = sensitivity.toFixed(1);
+});
+$('sensorAxis').addEventListener('change', e => { sensorAxis = e.target.value; });
+$('fallAngle').addEventListener('input', e => {
+    fallAngleDeg = parseInt(e.target.value);
+    $('fallAngleValue').textContent = fallAngleDeg + '°';
+});
+$('initAngle').addEventListener('input', e => {
+    initAngleDeg = parseInt(e.target.value);
+    $('initAngleValue').textContent = initAngleDeg + '°';
+});
+
+// --- メインループ ---
+const DT = 1 / 60;
+const PHYSICS_STEPS = 4; // 物理を細かく計算
+const PHYSICS_DT = DT / PHYSICS_STEPS;
+
+function mainLoop() {
+    if (gameState === 'running') {
+        for (let i = 0; i < PHYSICS_STEPS; i++) {
+            const fallen = simulate(PHYSICS_DT);
+            if (fallen) {
+                onFallen();
+                break;
+            }
+        }
+        $('timerVal').textContent = simTime.toFixed(2);
+    }
+
+    draw();
+
+    // 数値表示
+    $('valCart').textContent = (cartX * 100).toFixed(1);
+    $('valAngle').textContent = (theta * 180 / Math.PI).toFixed(1);
+    $('valAccel').textContent = cartAccel.toFixed(1);
+
+    requestAnimationFrame(mainLoop);
+}
+
+resetGame();
+gameState = 'idle';
+mainLoop();
+</script>
+</body>
+</html>
