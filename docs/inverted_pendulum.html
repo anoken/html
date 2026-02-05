@@ -124,6 +124,33 @@
         }
         .ctrl label span { color: #666; font-variant-numeric: tabular-nums; }
         .ctrl input[type="range"] { width: 100%; cursor: pointer; }
+        .pm-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .pm-btn {
+            width: 44px; height: 44px;
+            border: 2px solid #000;
+            border-radius: 8px;
+            background: #fff;
+            font-size: 1.2rem;
+            font-weight: 700;
+            cursor: pointer;
+            color: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .pm-btn:active { background: #ccc; }
+        .pm-btn.pm-wide { width: 100%; font-size: 1.4rem; }
+        .pm-val {
+            flex: 1;
+            text-align: center;
+            font-size: 1.1rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
 
         /* タイマー大表示 */
         .timer-display {
@@ -270,16 +297,26 @@
         <input type="range" id="damping" min="0" max="10.0" step="0.1" value="0.80">
     </div>
     <div class="ctrl">
-        <label>センサー感度 <span id="sensValue">2.0</span></label>
-        <input type="range" id="sensitivity" min="0.5" max="8.0" step="0.5" value="2.0">
+        <label>センサー感度</label>
+        <div class="pm-row">
+            <button class="pm-btn" id="sensDown">−</button>
+            <span class="pm-val" id="sensValue">2.0</span>
+            <button class="pm-btn" id="sensUp">＋</button>
+        </div>
     </div>
     <div class="ctrl">
         <label>入力軸</label>
-        <select id="sensorAxis">
-            <option value="x" selected>X軸（左右）</option>
-            <option value="y">Y軸（前後）</option>
-            <option value="z">Z軸（上下）</option>
-        </select>
+        <div class="pm-row">
+            <button class="pm-btn" id="axisDown">◀</button>
+            <span class="pm-val" id="axisValue">X</span>
+            <button class="pm-btn" id="axisUp">▶</button>
+        </div>
+    </div>
+    <div class="ctrl">
+        <label>入力の符号（向きが逆なら切替）</label>
+        <div class="pm-row">
+            <button class="pm-btn pm-wide" id="signToggle">＋</button>
+        </div>
     </div>
     <div class="ctrl">
         <label>転倒判定角度 <span id="fallAngleValue">90°</span></label>
@@ -344,6 +381,7 @@ let sensorActive = false;
 let sensorAccel = { x: 0, y: 0, z: 0 };
 let sensorFiltered = 0;  // ローパスフィルタ済みの値
 let sensorAxis = 'x';
+let sensorSign = 1;      // +1 or -1（符号反転用）
 
 const $ = id => document.getElementById(id);
 
@@ -355,47 +393,12 @@ function updateBestScore() {
 }
 updateBestScore();
 
-// --- 画面の向き取得 ---
-function getScreenAngle() {
-    if (screen.orientation && screen.orientation.angle !== undefined) {
-        return screen.orientation.angle;
-    }
-    return window.orientation || 0;
-}
-
 // --- センサー制御 ---
 function handleSensorMotion(event) {
     const acc = event.accelerationIncludingGravity || {};
-    const rawX = acc.x ?? 0;
-    const rawY = acc.y ?? 0;
-    const rawZ = acc.z ?? 0;
-
-    // 画面の向きに応じてX/Yを補正（常に画面左右=x, 画面上下=yに）
-    const angle = getScreenAngle();
-    switch (angle) {
-        case 0:   // 縦（通常）
-            sensorAccel.x = rawX;
-            sensorAccel.y = rawY;
-            break;
-        case 90:  // 横（ホームボタン右 / 反時計回り）
-            sensorAccel.x = -rawY;
-            sensorAccel.y = rawX;
-            break;
-        case -90:
-        case 270: // 横（ホームボタン左 / 時計回り）
-            sensorAccel.x = rawY;
-            sensorAccel.y = -rawX;
-            break;
-        case 180: // 逆さ
-            sensorAccel.x = -rawX;
-            sensorAccel.y = -rawY;
-            break;
-        default:
-            sensorAccel.x = rawX;
-            sensorAccel.y = rawY;
-    }
-    sensorAccel.z = rawZ;
-
+    sensorAccel.x = acc.x ?? 0;
+    sensorAccel.y = acc.y ?? 0;
+    sensorAccel.z = acc.z ?? 0;
     if (!sensorActive) {
         sensorActive = true;
         $('sensorStatus').textContent = 'センサー計測中';
@@ -492,14 +495,13 @@ function resetGame() {
 
 // --- 物理シミュレーション (RK4) ---
 function simulate(dt) {
-    // センサー入力 → 傾き方向に台車が落ちる
-    // accelerationIncludingGravity の水平成分 = 重力×sinθ（傾き角）
-    // そのまま使えば傾けた方向に台車が滑り落ちる
+    // センサー入力（シンプル: 選択軸の値 × 符号）
     let rawInput = 0;
     if (sensorActive) {
-        if (sensorAxis === 'x') rawInput = -sensorAccel.x;
-        else if (sensorAxis === 'y') rawInput = -sensorAccel.y;
-        else rawInput = sensorAccel.z - 9.81;
+        if (sensorAxis === 'x') rawInput = sensorAccel.x;
+        else if (sensorAxis === 'y') rawInput = sensorAccel.y;
+        else rawInput = sensorAccel.z;
+        rawInput *= sensorSign;
     }
     // ローパスフィルタ (alpha小=滑らか, 大=敏感)
     const alpha = 0.15;
@@ -848,11 +850,35 @@ $('damping').addEventListener('input', e => {
     mu = parseFloat(e.target.value);
     $('dampValue').textContent = mu.toFixed(2);
 });
-$('sensitivity').addEventListener('input', e => {
-    sensitivity = parseFloat(e.target.value);
+// 感度 +/- ボタン
+$('sensUp').addEventListener('click', () => {
+    sensitivity = Math.min(20, sensitivity + 0.5);
     $('sensValue').textContent = sensitivity.toFixed(1);
 });
-$('sensorAxis').addEventListener('change', e => { sensorAxis = e.target.value; });
+$('sensDown').addEventListener('click', () => {
+    sensitivity = Math.max(0.5, sensitivity - 0.5);
+    $('sensValue').textContent = sensitivity.toFixed(1);
+});
+// 入力軸 切替ボタン
+const axes = ['x', 'y', 'z'];
+const axisLabels = { x: 'X', y: 'Y', z: 'Z' };
+function updateAxisUI() { $('axisValue').textContent = axisLabels[sensorAxis]; }
+$('axisUp').addEventListener('click', () => {
+    let i = axes.indexOf(sensorAxis);
+    sensorAxis = axes[(i + 1) % axes.length];
+    updateAxisUI();
+});
+$('axisDown').addEventListener('click', () => {
+    let i = axes.indexOf(sensorAxis);
+    sensorAxis = axes[(i + axes.length - 1) % axes.length];
+    updateAxisUI();
+});
+// 符号トグルボタン
+function updateSignUI() { $('signToggle').textContent = sensorSign > 0 ? '＋' : '−'; }
+$('signToggle').addEventListener('click', () => {
+    sensorSign *= -1;
+    updateSignUI();
+});
 $('fallAngle').addEventListener('input', e => {
     fallAngleDeg = parseInt(e.target.value);
     $('fallAngleValue').textContent = fallAngleDeg + '°';
