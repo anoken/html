@@ -8,50 +8,50 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #f5f5f5;
-            color: #333;
+            background: #eee;
+            color: #111;
             min-height: 100dvh;
             overflow-x: hidden;
         }
         .header {
             background: #fff;
             padding: 12px 16px;
-            border-bottom: 1px solid #ddd;
+            border-bottom: 2px solid #000;
             text-align: center;
         }
         .header h1 { font-size: 1rem; font-weight: 700; }
-        .header .eq { font-size: 0.7rem; color: #888; margin-top: 2px; }
+        .header .eq { font-size: 0.7rem; color: #666; margin-top: 2px; }
 
         .sensor-start {
             display: block;
             width: calc(100% - 32px);
             margin: 12px auto;
             padding: 16px;
-            border: none;
+            border: 2px solid #000;
             border-radius: 12px;
             font-size: 1.1rem;
             font-weight: 700;
             cursor: pointer;
-            background: #4CAF50;
+            background: #000;
             color: #fff;
             transition: background 0.2s;
         }
-        .sensor-start.active { background: #f44336; }
+        .sensor-start.active { background: #555; }
         .sensor-status {
             text-align: center;
             font-size: 0.8rem;
-            color: #888;
+            color: #666;
             padding: 4px 0 8px;
         }
-        .sensor-status.ok { color: #4CAF50; }
-        .sensor-status.warn { color: #ff9800; }
-        .sensor-status.err { color: #f44336; }
+        .sensor-status.ok { color: #000; font-weight: 700; }
+        .sensor-status.warn { color: #666; }
+        .sensor-status.err { color: #333; font-weight: 700; }
 
         .canvas-wrap {
             background: #fff;
             margin: 0 8px 8px;
             border-radius: 10px;
-            border: 1px solid #e0e0e0;
+            border: 2px solid #000;
             overflow: hidden;
             position: relative;
         }
@@ -61,45 +61,45 @@
         .readout-item {
             flex: 1;
             background: #fff;
-            border: 1px solid #e0e0e0;
+            border: 1px solid #999;
             border-radius: 10px;
             padding: 10px 8px;
             text-align: center;
         }
-        .readout-label { font-size: 0.65rem; color: #888; margin-bottom: 2px; }
+        .readout-label { font-size: 0.65rem; color: #666; margin-bottom: 2px; }
         .readout-val {
             font-size: 1.1rem;
             font-weight: 700;
             font-variant-numeric: tabular-nums;
         }
-        .readout-unit { font-size: 0.6rem; color: #aaa; font-weight: 400; }
+        .readout-unit { font-size: 0.6rem; color: #888; font-weight: 400; }
 
         .btn-row { display: flex; gap: 8px; margin: 0 8px 8px; }
         .btn-row button {
             flex: 1;
             padding: 12px;
-            border: 1px solid #ddd;
+            border: 2px solid #000;
             border-radius: 10px;
             background: #fff;
             font-size: 0.9rem;
             font-weight: 600;
             cursor: pointer;
-            color: #333;
+            color: #000;
         }
-        .btn-row button:active { background: #eee; }
+        .btn-row button:active { background: #ccc; }
 
         .settings-toggle {
             display: block;
             width: calc(100% - 16px);
             margin: 0 8px 8px;
             padding: 12px;
-            border: 1px solid #e0e0e0;
+            border: 1px solid #999;
             border-radius: 10px;
             background: #fff;
             font-size: 0.85rem;
             font-weight: 600;
             cursor: pointer;
-            color: #555;
+            color: #333;
             text-align: left;
         }
         .settings-toggle::after { content: ' ▼'; float: right; }
@@ -109,7 +109,7 @@
             margin: 0 8px 8px;
             padding: 16px;
             background: #fff;
-            border: 1px solid #e0e0e0;
+            border: 1px solid #999;
             border-radius: 10px;
         }
         .settings-panel.open { display: block; }
@@ -119,10 +119,10 @@
             display: flex;
             justify-content: space-between;
             font-size: 0.8rem;
-            color: #555;
+            color: #333;
             margin-bottom: 4px;
         }
-        .ctrl label span { color: #999; font-variant-numeric: tabular-nums; }
+        .ctrl label span { color: #666; font-variant-numeric: tabular-nums; }
         .ctrl input[type="range"] { width: 100%; cursor: pointer; }
 
         /* タイマー大表示 */
@@ -131,24 +131,24 @@
             margin: 0 8px 8px;
             padding: 12px;
             background: #fff;
-            border: 1px solid #e0e0e0;
+            border: 2px solid #000;
             border-radius: 10px;
         }
-        .timer-display .timer-label { font-size: 0.75rem; color: #888; }
+        .timer-display .timer-label { font-size: 0.75rem; color: #666; }
         .timer-display .timer-val {
             font-size: 2.2rem;
             font-weight: 800;
             font-variant-numeric: tabular-nums;
-            color: #333;
+            color: #000;
         }
-        .timer-display .timer-unit { font-size: 0.8rem; color: #aaa; }
+        .timer-display .timer-unit { font-size: 0.8rem; color: #666; }
 
         /* ゲームオーバー */
         .overlay {
             display: none;
             position: fixed;
             inset: 0;
-            background: rgba(0,0,0,0.6);
+            background: rgba(0,0,0,0.7);
             z-index: 100;
             justify-content: center;
             align-items: center;
@@ -161,38 +161,38 @@
             text-align: center;
             max-width: 320px;
             width: 90%;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            border: 3px solid #000;
         }
         .overlay-box h2 {
             font-size: 1.3rem;
             margin-bottom: 8px;
-            color: #f44336;
+            color: #000;
         }
         .overlay-box .result-time {
             font-size: 3rem;
             font-weight: 800;
-            color: #333;
+            color: #000;
             margin: 12px 0;
             font-variant-numeric: tabular-nums;
         }
         .overlay-box .result-unit {
             font-size: 1rem;
-            color: #888;
+            color: #666;
         }
         .overlay-box .result-msg {
             font-size: 0.85rem;
-            color: #666;
+            color: #444;
             margin: 8px 0 20px;
         }
         .overlay-box button {
             width: 100%;
             padding: 14px;
-            border: none;
+            border: 2px solid #000;
             border-radius: 10px;
             font-size: 1rem;
             font-weight: 700;
             cursor: pointer;
-            background: #4CAF50;
+            background: #000;
             color: #fff;
         }
 
@@ -201,11 +201,11 @@
             text-align: center;
             margin: 0 8px 8px;
             padding: 8px;
-            background: #fff8e1;
-            border: 1px solid #ffe082;
+            background: #fff;
+            border: 2px solid #000;
             border-radius: 10px;
             font-size: 0.8rem;
-            color: #f57f17;
+            color: #000;
             font-weight: 600;
         }
     </style>
@@ -267,7 +267,7 @@
     </div>
     <div class="ctrl">
         <label>空気抵抗 μ <span id="dampValue">0.80</span></label>
-        <input type="range" id="damping" min="0" max="2.0" step="0.01" value="0.80">
+        <input type="range" id="damping" min="0" max="10.0" step="0.1" value="0.80">
     </div>
     <div class="ctrl">
         <label>センサー感度 <span id="sensValue">2.0</span></label>
@@ -276,8 +276,8 @@
     <div class="ctrl">
         <label>入力軸</label>
         <select id="sensorAxis">
-            <option value="x">X軸（左右）</option>
-            <option value="y" selected>Y軸（前後）</option>
+            <option value="x" selected>X軸（左右）</option>
+            <option value="y">Y軸（前後）</option>
             <option value="z">Z軸（上下）</option>
         </select>
     </div>
@@ -343,7 +343,7 @@ let bestTime = parseFloat(localStorage.getItem('invertedPendulumBest') || '0');
 let sensorActive = false;
 let sensorAccel = { x: 0, y: 0, z: 0 };
 let sensorFiltered = 0;  // ローパスフィルタ済みの値
-let sensorAxis = 'y';
+let sensorAxis = 'x';
 
 const $ = id => document.getElementById(id);
 
@@ -492,11 +492,13 @@ function resetGame() {
 
 // --- 物理シミュレーション (RK4) ---
 function simulate(dt) {
-    // センサー入力 → 台車加速度（ローパスフィルタで滑らかに）
+    // センサー入力 → 傾き方向に台車が落ちる
+    // accelerationIncludingGravity の水平成分 = 重力×sinθ（傾き角）
+    // そのまま使えば傾けた方向に台車が滑り落ちる
     let rawInput = 0;
     if (sensorActive) {
-        if (sensorAxis === 'x') rawInput = sensorAccel.x;
-        else if (sensorAxis === 'y') rawInput = sensorAccel.y;
+        if (sensorAxis === 'x') rawInput = -sensorAccel.x;
+        else if (sensorAxis === 'y') rawInput = -sensorAccel.y;
         else rawInput = sensorAccel.z - 9.81;
     }
     // ローパスフィルタ (alpha小=滑らか, 大=敏感)
@@ -549,10 +551,7 @@ function simulate(dt) {
     cartX    += (k1x  + 2*k2x  + 2*k3x  + k4x ) * dt / 6;
     cartV    += (k1v  + 2*k2v  + 2*k3v  + k4v ) * dt / 6;
 
-    // 台車を画面内に制限
-    const cartLimit = 2.0;
-    if (cartX > cartLimit) { cartX = cartLimit; cartV = 0; }
-    if (cartX < -cartLimit) { cartX = -cartLimit; cartV = 0; }
+    // 移動制限なし（カメラが追従する）
 
     simTime += dt;
 
@@ -574,42 +573,49 @@ function draw() {
     const groundY = H - 50;
     const scale = W / 5; // 1m = scale px
 
+    // カメラオフセット: 台車が常に画面中央に来る
+    const camOffset = cartX * scale;
+
     // 地面
-    ctx.fillStyle = '#f0f0f0';
+    ctx.fillStyle = '#ddd';
     ctx.fillRect(0, groundY, W, H - groundY);
-    ctx.strokeStyle = '#ccc';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(0, groundY);
     ctx.lineTo(W, groundY);
     ctx.stroke();
 
-    // グリッド線（1mごと）
-    ctx.strokeStyle = '#eee';
+    // グリッド線（1mごと、カメラ追従でスクロール）
+    ctx.strokeStyle = '#ccc';
     ctx.lineWidth = 0.5;
-    for (let i = -3; i <= 3; i++) {
-        const gx = centerX + i * scale;
+    const gridOffset = camOffset % scale;
+    const gridCenter = Math.round(cartX);
+    for (let i = -4; i <= 4; i++) {
+        const gx = centerX + i * scale - gridOffset;
         ctx.beginPath();
         ctx.moveTo(gx, 0);
         ctx.lineTo(gx, groundY);
         ctx.stroke();
     }
 
-    // 目盛り
-    ctx.fillStyle = '#ccc';
+    // 目盛り（カメラ追従）
+    ctx.fillStyle = '#999';
     ctx.font = '10px sans-serif';
     ctx.textAlign = 'center';
-    for (let i = -2; i <= 2; i++) {
-        ctx.fillText(i + 'm', centerX + i * scale, groundY + 14);
+    for (let i = -3; i <= 3; i++) {
+        const worldM = gridCenter + i;
+        const gx = centerX + (worldM - cartX) * scale;
+        ctx.fillText(worldM + 'm', gx, groundY + 14);
     }
 
-    // --- 台車 ---
-    const cartPxX = centerX + cartX * scale;
+    // --- 台車（常に画面中央） ---
+    const cartPxX = centerX;
     const cartW = 70, cartH = 30;
     const wheelR = 8;
 
     // 車輪
-    ctx.fillStyle = '#555';
+    ctx.fillStyle = '#000';
     ctx.beginPath();
     ctx.arc(cartPxX - cartW / 3, groundY - wheelR, wheelR, 0, Math.PI * 2);
     ctx.fill();
@@ -619,8 +625,8 @@ function draw() {
 
     // 本体
     const cartTop = groundY - wheelR * 2 - cartH;
-    ctx.fillStyle = '#607D8B';
-    ctx.strokeStyle = '#37474F';
+    ctx.fillStyle = '#aaa';
+    ctx.strokeStyle = '#000';
     ctx.lineWidth = 2;
     roundRect(ctx, cartPxX - cartW / 2, cartTop, cartW, cartH, 5);
     ctx.fill();
@@ -659,8 +665,8 @@ function draw() {
 
     // 質量（ボブ）
     const bobR = 14;
-    ctx.fillStyle = '#E53935';
-    ctx.strokeStyle = '#B71C1C';
+    ctx.fillStyle = '#333';
+    ctx.strokeStyle = '#000';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(bobX, bobY, bobR, 0, Math.PI * 2);
@@ -675,7 +681,7 @@ function draw() {
     // --- 角度表示の弧 ---
     if (Math.abs(theta) > 0.02) {
         const arcR = 30;
-        ctx.strokeStyle = theta > 0 ? '#ff5722' : '#2196F3';
+        ctx.strokeStyle = '#000';
         ctx.lineWidth = 1.5;
         ctx.setLineDash([3, 3]);
         // 直立の基準線
@@ -700,8 +706,8 @@ function draw() {
         const arrowStartX = cartPxX + arrowDir * (cartW / 2 + 5);
         const arrowEndX = arrowStartX + arrowDir * arrowLen;
 
-        ctx.strokeStyle = '#FF9800';
-        ctx.fillStyle = '#FF9800';
+        ctx.strokeStyle = '#000';
+        ctx.fillStyle = '#000';
         ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.moveTo(arrowStartX, arrowY);
@@ -715,7 +721,7 @@ function draw() {
         ctx.closePath();
         ctx.fill();
 
-        ctx.fillStyle = '#FF9800';
+        ctx.fillStyle = '#000';
         ctx.font = '10px sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText('a', arrowStartX + arrowDir * arrowLen / 2, arrowY - 10);
@@ -733,7 +739,7 @@ function draw() {
         ctx.fillText('スマホ: センサーを起動して傾けて操作', centerX, H / 2 + 8);
         ctx.fillText('PC: ←→キーで操作', centerX, H / 2 + 26);
         ctx.font = '11px sans-serif';
-        ctx.fillStyle = '#ffeb3b';
+        ctx.fillStyle = '#ccc';
         ctx.fillText('※ 下の設定パネルで軸・感度を調整できます', centerX, H / 2 + 48);
     }
 
@@ -781,10 +787,10 @@ function onFallen() {
     if (isNewBest) {
         msg = '新記録！ ベスト更新！';
         $('overlay').querySelector('h2').textContent = '新記録！';
-        $('overlay').querySelector('h2').style.color = '#FF9800';
+        $('overlay').querySelector('h2').style.color = '#000';
     } else {
         $('overlay').querySelector('h2').textContent = '倒れた！';
-        $('overlay').querySelector('h2').style.color = '#f44336';
+        $('overlay').querySelector('h2').style.color = '#000';
         if (time < 1) msg = 'もう少しがんばろう！';
         else if (time < 3) msg = 'いい感じ！もっと長く保てるかも？';
         else if (time < 10) msg = 'なかなかの腕前！';
