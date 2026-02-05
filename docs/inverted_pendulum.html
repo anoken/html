@@ -254,20 +254,20 @@
 <button class="settings-toggle" id="settingsToggle">パラメータ設定</button>
 <div class="settings-panel" id="settingsPanel">
     <div class="ctrl">
-        <label>振子質量 m <span id="pendMassValue">0.5 kg</span></label>
-        <input type="range" id="pendMass" min="0.1" max="5.0" step="0.1" value="0.5">
+        <label>振子質量 m <span id="pendMassValue">0.3 kg</span></label>
+        <input type="range" id="pendMass" min="0.1" max="5.0" step="0.1" value="0.3">
     </div>
     <div class="ctrl">
-        <label>台車質量 M <span id="cartMassValue">2.0 kg</span></label>
-        <input type="range" id="cartMass" min="0.5" max="10.0" step="0.5" value="2.0">
+        <label>台車質量 M <span id="cartMassValue">5.0 kg</span></label>
+        <input type="range" id="cartMass" min="0.5" max="10.0" step="0.5" value="5.0">
     </div>
     <div class="ctrl">
-        <label>振子の長さ L <span id="lengthValue">1.0 m</span></label>
-        <input type="range" id="pendLength" min="0.3" max="3.0" step="0.1" value="1.0">
+        <label>振子の長さ L <span id="lengthValue">3.0 m</span></label>
+        <input type="range" id="pendLength" min="0.3" max="5.0" step="0.1" value="3.0">
     </div>
     <div class="ctrl">
-        <label>空気抵抗 μ <span id="dampValue">0.30</span></label>
-        <input type="range" id="damping" min="0" max="1.0" step="0.01" value="0.30">
+        <label>空気抵抗 μ <span id="dampValue">0.80</span></label>
+        <input type="range" id="damping" min="0" max="2.0" step="0.01" value="0.80">
     </div>
     <div class="ctrl">
         <label>センサー感度 <span id="sensValue">2.0</span></label>
@@ -320,10 +320,10 @@ fitCanvas();
 window.addEventListener('resize', fitCanvas);
 
 // --- パラメータ ---
-let mPend = 0.5;       // 振子質量 (kg)
-let mCart = 2.0;       // 台車質量 (kg)
-let L = 1.0;           // 振子長さ (m)
-let mu = 0.30;         // 空気抵抗係数 大きい方がゆっくり
+let mPend = 0.3;       // 振子質量 (kg) 軽い方が操作しやすい
+let mCart = 5.0;       // 台車質量 (kg) 重い方が安定
+let L = 3.0;           // 振子長さ (m) 長い方がゆっくり倒れる
+let mu = 0.8;          // 空気抵抗係数 大きい方がゆっくり
 let sensitivity = 2.0; // センサー感度
 let fallAngleDeg = 90; // 転倒判定角度 90°=水平で転倒
 let initAngleDeg = 5;  // 初期角度
@@ -355,12 +355,47 @@ function updateBestScore() {
 }
 updateBestScore();
 
+// --- 画面の向き取得 ---
+function getScreenAngle() {
+    if (screen.orientation && screen.orientation.angle !== undefined) {
+        return screen.orientation.angle;
+    }
+    return window.orientation || 0;
+}
+
 // --- センサー制御 ---
 function handleSensorMotion(event) {
     const acc = event.accelerationIncludingGravity || {};
-    sensorAccel.x = acc.x ?? 0;
-    sensorAccel.y = acc.y ?? 0;
-    sensorAccel.z = acc.z ?? 0;
+    const rawX = acc.x ?? 0;
+    const rawY = acc.y ?? 0;
+    const rawZ = acc.z ?? 0;
+
+    // 画面の向きに応じてX/Yを補正（常に画面左右=x, 画面上下=yに）
+    const angle = getScreenAngle();
+    switch (angle) {
+        case 0:   // 縦（通常）
+            sensorAccel.x = rawX;
+            sensorAccel.y = rawY;
+            break;
+        case 90:  // 横（ホームボタン右 / 反時計回り）
+            sensorAccel.x = -rawY;
+            sensorAccel.y = rawX;
+            break;
+        case -90:
+        case 270: // 横（ホームボタン左 / 時計回り）
+            sensorAccel.x = rawY;
+            sensorAccel.y = -rawX;
+            break;
+        case 180: // 逆さ
+            sensorAccel.x = -rawX;
+            sensorAccel.y = -rawY;
+            break;
+        default:
+            sensorAccel.x = rawX;
+            sensorAccel.y = rawY;
+    }
+    sensorAccel.z = rawZ;
+
     if (!sensorActive) {
         sensorActive = true;
         $('sensorStatus').textContent = 'センサー計測中';
@@ -600,7 +635,9 @@ function draw() {
     // --- 振子 ---
     const pivotX = cartPxX;
     const pivotY = cartTop;
-    const pendLen = L * scale * 0.7; // 表示用スケール
+    // 棒を画面内に収める: ピボットから上端まで-余白20pxに収まるよう自動スケール
+    const maxPendPx = pivotY - 20;
+    const pendLen = Math.min(L * scale * 0.7, maxPendPx);
 
     // 振子先端（質量）の位置
     const bobX = pivotX + pendLen * Math.sin(theta);
