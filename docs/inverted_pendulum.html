@@ -214,7 +214,7 @@
 
 <div class="header">
     <h1>台車型倒立振子バランスゲーム</h1>
-    <div class="eq">Lθ̈ = g sinθ − a cosθ − μθ̇</div>
+    <div class="eq">(M+m)ẍ + mLθ̈cosθ = F,　Lθ̈ + ẍcosθ = gsinθ − μθ̇</div>
 </div>
 
 <button class="sensor-start" id="sensorBtn">&#9654; センサーを起動してスタート</button>
@@ -254,6 +254,14 @@
 <button class="settings-toggle" id="settingsToggle">パラメータ設定</button>
 <div class="settings-panel" id="settingsPanel">
     <div class="ctrl">
+        <label>振子質量 m <span id="pendMassValue">0.5 kg</span></label>
+        <input type="range" id="pendMass" min="0.1" max="5.0" step="0.1" value="0.5">
+    </div>
+    <div class="ctrl">
+        <label>台車質量 M <span id="cartMassValue">2.0 kg</span></label>
+        <input type="range" id="cartMass" min="0.5" max="10.0" step="0.5" value="2.0">
+    </div>
+    <div class="ctrl">
         <label>振子の長さ L <span id="lengthValue">1.0 m</span></label>
         <input type="range" id="pendLength" min="0.3" max="3.0" step="0.1" value="1.0">
     </div>
@@ -262,8 +270,8 @@
         <input type="range" id="damping" min="0" max="1.0" step="0.01" value="0.30">
     </div>
     <div class="ctrl">
-        <label>センサー感度 <span id="sensValue">5.0</span></label>
-        <input type="range" id="sensitivity" min="0.5" max="12.0" step="0.5" value="5.0">
+        <label>センサー感度 <span id="sensValue">2.0</span></label>
+        <input type="range" id="sensitivity" min="0.5" max="8.0" step="0.5" value="2.0">
     </div>
     <div class="ctrl">
         <label>入力軸</label>
@@ -278,8 +286,8 @@
         <input type="range" id="fallAngle" min="20" max="120" step="5" value="90">
     </div>
     <div class="ctrl">
-        <label>初期角度 <span id="initAngleValue">1°</span></label>
-        <input type="range" id="initAngle" min="1" max="15" step="1" value="1">
+        <label>初期角度 <span id="initAngleValue">5°</span></label>
+        <input type="range" id="initAngle" min="1" max="15" step="1" value="5">
     </div>
 </div>
 
@@ -312,11 +320,13 @@ fitCanvas();
 window.addEventListener('resize', fitCanvas);
 
 // --- パラメータ ---
+let mPend = 0.5;       // 振子質量 (kg)
+let mCart = 2.0;       // 台車質量 (kg)
 let L = 1.0;           // 振子長さ (m)
 let mu = 0.30;         // 空気抵抗係数 大きい方がゆっくり
-let sensitivity = 5.0; // センサー感度 高い方が操作しやすい
+let sensitivity = 2.0; // センサー感度
 let fallAngleDeg = 90; // 転倒判定角度 90°=水平で転倒
-let initAngleDeg = 1;  // 初期角度 小さい方がやさしい
+let initAngleDeg = 5;  // 初期角度
 const g = 9.81;
 
 // --- 状態変数 ---
@@ -332,6 +342,7 @@ let bestTime = parseFloat(localStorage.getItem('invertedPendulumBest') || '0');
 // --- 加速度センサー ---
 let sensorActive = false;
 let sensorAccel = { x: 0, y: 0, z: 0 };
+let sensorFiltered = 0;  // ローパスフィルタ済みの値
 let sensorAxis = 'y';
 
 const $ = id => document.getElementById(id);
@@ -422,6 +433,14 @@ window.addEventListener('keyup', e => {
     if (e.key === 'ArrowRight') keyRight = false;
 });
 
+// キャンバスタップでスタート（idle時のみ）
+mainCanvas.addEventListener('click', () => {
+    if (gameState === 'idle') {
+        resetGame();
+        gameState = 'running';
+    }
+});
+
 // --- ゲームリセット ---
 function resetGame() {
     const initRad = initAngleDeg * Math.PI / 180;
@@ -430,6 +449,7 @@ function resetGame() {
     cartX = 0;
     cartV = 0;
     cartAccel = 0;
+    sensorFiltered = 0;
     simTime = 0;
     $('timerVal').textContent = '0.00';
     $('overlay').classList.remove('show');
@@ -437,47 +457,67 @@ function resetGame() {
 
 // --- 物理シミュレーション (RK4) ---
 function simulate(dt) {
-    // センサー入力 → 台車加速度
-    let accelInput = 0;
+    // センサー入力 → 台車加速度（ローパスフィルタで滑らかに）
+    let rawInput = 0;
     if (sensorActive) {
-        if (sensorAxis === 'x') accelInput = sensorAccel.x;
-        else if (sensorAxis === 'y') accelInput = sensorAccel.y;
-        else accelInput = sensorAccel.z - 9.81;
-        accelInput *= sensitivity;
+        if (sensorAxis === 'x') rawInput = sensorAccel.x;
+        else if (sensorAxis === 'y') rawInput = sensorAccel.y;
+        else rawInput = sensorAccel.z - 9.81;
     }
+    // ローパスフィルタ (alpha小=滑らか, 大=敏感)
+    const alpha = 0.15;
+    sensorFiltered += alpha * (rawInput - sensorFiltered);
+    let accelInput = sensorFiltered * sensitivity;
+
     // キーボード入力
-    if (keyLeft) accelInput -= 15;
-    if (keyRight) accelInput += 15;
+    if (keyLeft) accelInput -= 12;
+    if (keyRight) accelInput += 12;
+
+    // 台車加速度に上限を設定
+    const maxAccel = 20;
+    accelInput = Math.max(-maxAccel, Math.min(maxAccel, accelInput));
+
+    // 外力 F = (M+m) * accelInput（センサー入力を力に変換）
+    const F = (mCart + mPend) * accelInput;
+
+    // 連成運動方程式 (台車+振子)
+    // (M+m)ẍ + mL θ̈ cosθ − mL θ̇² sinθ = F − friction
+    // L θ̈ + ẍ cosθ − g sinθ + μ θ̇ = 0
+    // → θ̈, ẍ を連立で解く
+    function calcAccels(th, thd, cv) {
+        const sinT = Math.sin(th), cosT = Math.cos(th);
+        const Mt = mCart + mPend;
+        const denom = Mt * L - mPend * L * cosT * cosT;
+        const friction = 0.5 * cv; // 台車摩擦
+        const thAcc = (Mt * g * sinT - cosT * (F - friction + mPend * L * thd * thd * sinT) - Mt * mu * thd) / denom;
+        const xAcc = (F - friction + mPend * L * (thd * thd * sinT - thAcc * cosT)) / Mt;
+        return { thAcc, xAcc };
+    }
 
     cartAccel = accelInput;
 
-    // 台車の運動（加速度入力 + 摩擦で減速）
-    cartV += cartAccel * dt;
-    cartV *= 0.98; // 摩擦
-    cartX += cartV * dt;
+    // RK4 (θ, θ̇, x, ẋ の4変数)
+    const a1 = calcAccels(theta, thetaDot, cartV);
+    const k1th = thetaDot, k1w = a1.thAcc, k1x = cartV, k1v = a1.xAcc;
+
+    const a2 = calcAccels(theta + k1th*dt/2, thetaDot + k1w*dt/2, cartV + k1v*dt/2);
+    const k2th = thetaDot + k1w*dt/2, k2w = a2.thAcc, k2x = cartV + k1v*dt/2, k2v = a2.xAcc;
+
+    const a3 = calcAccels(theta + k2th*dt/2, thetaDot + k2w*dt/2, cartV + k2v*dt/2);
+    const k3th = thetaDot + k2w*dt/2, k3w = a3.thAcc, k3x = cartV + k2v*dt/2, k3v = a3.xAcc;
+
+    const a4 = calcAccels(theta + k3th*dt, thetaDot + k3w*dt, cartV + k3v*dt);
+    const k4th = thetaDot + k3w*dt, k4w = a4.thAcc, k4x = cartV + k3v*dt, k4v = a4.xAcc;
+
+    theta    += (k1th + 2*k2th + 2*k3th + k4th) * dt / 6;
+    thetaDot += (k1w  + 2*k2w  + 2*k3w  + k4w ) * dt / 6;
+    cartX    += (k1x  + 2*k2x  + 2*k3x  + k4x ) * dt / 6;
+    cartV    += (k1v  + 2*k2v  + 2*k3v  + k4v ) * dt / 6;
 
     // 台車を画面内に制限
-    const cartLimit = 2.0; // ±2m
+    const cartLimit = 2.0;
     if (cartX > cartLimit) { cartX = cartLimit; cartV = 0; }
     if (cartX < -cartLimit) { cartX = -cartLimit; cartV = 0; }
-
-    // 倒立振子の運動方程式 (RK4)
-    // θ̈ = (g sinθ − a cosθ − μ θ̇) / L
-    function thetaAccel(th, thd) {
-        return (g * Math.sin(th) - cartAccel * Math.cos(th) - mu * thd) / L;
-    }
-
-    const k1t = thetaDot;
-    const k1w = thetaAccel(theta, thetaDot);
-    const k2t = thetaDot + k1w * dt / 2;
-    const k2w = thetaAccel(theta + k1t * dt / 2, thetaDot + k1w * dt / 2);
-    const k3t = thetaDot + k2w * dt / 2;
-    const k3w = thetaAccel(theta + k2t * dt / 2, thetaDot + k2w * dt / 2);
-    const k4t = thetaDot + k3w * dt;
-    const k4w = thetaAccel(theta + k3t * dt, thetaDot + k3w * dt);
-
-    theta += (k1t + 2 * k2t + 2 * k3t + k4t) * dt / 6;
-    thetaDot += (k1w + 2 * k2w + 2 * k3w + k4w) * dt / 6;
 
     simTime += dt;
 
@@ -649,11 +689,15 @@ function draw() {
         ctx.fillStyle = 'rgba(0,0,0,0.4)';
         ctx.fillRect(0, 0, W, H);
         ctx.fillStyle = '#fff';
-        ctx.font = 'bold 16px sans-serif';
+        ctx.font = 'bold 18px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('センサーを起動してスタート', centerX, H / 2 - 10);
+        ctx.fillText('タップ / スペースキーでスタート', centerX, H / 2 - 16);
         ctx.font = '12px sans-serif';
-        ctx.fillText('（PCの場合は←→キーで操作、スペースでスタート）', centerX, H / 2 + 14);
+        ctx.fillText('スマホ: センサーを起動して傾けて操作', centerX, H / 2 + 8);
+        ctx.fillText('PC: ←→キーで操作', centerX, H / 2 + 26);
+        ctx.font = '11px sans-serif';
+        ctx.fillStyle = '#ffeb3b';
+        ctx.fillText('※ 下の設定パネルで軸・感度を調整できます', centerX, H / 2 + 48);
     }
 
     if (gameState === 'paused') {
@@ -736,7 +780,8 @@ $('pauseBtn').addEventListener('click', () => {
 
 $('retryBtn').addEventListener('click', () => {
     resetGame();
-    gameState = 'running';
+    gameState = 'idle'; // すぐ始めず待機→設定変更可能
+    $('pauseBtn').textContent = '一時停止';
 });
 
 $('settingsToggle').addEventListener('click', () => {
@@ -744,6 +789,14 @@ $('settingsToggle').addEventListener('click', () => {
     $('settingsPanel').classList.toggle('open');
 });
 
+$('pendMass').addEventListener('input', e => {
+    mPend = parseFloat(e.target.value);
+    $('pendMassValue').textContent = mPend.toFixed(1) + ' kg';
+});
+$('cartMass').addEventListener('input', e => {
+    mCart = parseFloat(e.target.value);
+    $('cartMassValue').textContent = mCart.toFixed(1) + ' kg';
+});
 $('pendLength').addEventListener('input', e => {
     L = parseFloat(e.target.value);
     $('lengthValue').textContent = L.toFixed(1) + ' m';
