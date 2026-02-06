@@ -19,7 +19,7 @@
     touch-action: none;
     user-select: none;
   }
-  canvas { display: block; position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
+  canvas { display: block; }
   #errBox { position:fixed; top:50px; left:10px; right:10px; color:#f55; font-size:0.8rem; z-index:999; word-break:break-all; pointer-events:none; }
   .water-label {
     position: fixed;
@@ -149,7 +149,7 @@ if (window.DeviceOrientationEvent) {
   accelBtn.style.display = 'inline-block';
   function onOrient(e) {
     if (e.gamma != null) {
-      accelTilt = Math.max(-MAX_TILT, Math.min(MAX_TILT, e.gamma * Math.PI / 180 * 2));
+      accelTilt = Math.max(-MAX_TILT, Math.min(MAX_TILT, e.gamma * Math.PI / 180 * 2 / 3));
     }
   }
   accelBtn.addEventListener('click', () => {
