@@ -127,6 +127,7 @@ let puddleX = 0;
 const keys = {};
 let accelActive = false;
 let accelTilt = 0;
+let visualTilt = 0;
 document.addEventListener('keydown', e => { keys[e.key] = true; });
 document.addEventListener('keyup', e => { keys[e.key] = false; });
 
@@ -197,7 +198,7 @@ function handleOverflow() {
 
   const W = canvas.width, H = canvas.height;
   const cx = W / 2, cy = H * 0.48;
-  const cosT = Math.cos(tilt), sinT = Math.sin(tilt);
+  const cosV = Math.cos(visualTilt), sinV = Math.sin(visualTilt);
   const hw = cupHalfW(baseH);
   const absTilt = Math.abs(tilt);
 
@@ -230,14 +231,14 @@ function handleOverflow() {
     if (cnt === 0) return;
     const avgX = wx_sum / sum;
     const ly = -HALF_H;
-    const wx = cx + avgX * cosT - ly * sinT;
-    const wy = cy + avgX * sinT + ly * cosT;
+    const wx = cx + avgX * cosV - ly * sinV;
+    const wy = cy + avgX * sinV + ly * cosV;
     // Width scales with overflow — much thicker
     const w = Math.min(sum * 1.2 + 4, 30);
     stream.push({
       x: wx, y: wy,
-      vx: sign * Math.cos(tilt) * 1.5,
-      vy: sign * Math.sin(tilt) * 0.3,
+      vx: sign * cosV * 1.5,
+      vy: sign * sinV * 0.3,
       w, age: 0
     });
     // Extra point for heavy flow → fatter stream
@@ -245,8 +246,8 @@ function handleOverflow() {
       stream.push({
         x: wx + (Math.random() - 0.5) * 6,
         y: wy + (Math.random() - 0.5) * 3,
-        vx: sign * Math.cos(tilt) * 1.2 + (Math.random() - 0.5),
-        vy: sign * Math.sin(tilt) * 0.2 + Math.random() * 0.5,
+        vx: sign * cosV * 1.2 + (Math.random() - 0.5),
+        vy: sign * sinV * 0.2 + Math.random() * 0.5,
         w: w * 0.7, age: 0
       });
     }
@@ -258,7 +259,7 @@ function handleOverflow() {
     // Faster drain — more dramatic water loss
     const volLoss = spillSum * (2 * CUP_TOP_HW / N);
     waterPct = Math.max(0, waterPct - volLoss / FULL_VOL * 100 * 0.5);
-    puddleX = puddleX * 0.92 + (cx + sinT * (CUP_TOP_HW + 30)) * 0.08;
+    puddleX = puddleX * 0.92 + (cx + sinV * (CUP_TOP_HW + 30)) * 0.08;
   }
 }
 
@@ -277,7 +278,7 @@ function handlePour() {
 
   const W = canvas.width, H = canvas.height;
   const cx = W / 2, cy = H * 0.48;
-  const cosT = Math.cos(tilt), sinT = Math.sin(tilt);
+  const cosV = Math.cos(visualTilt), sinV = Math.sin(visualTilt);
 
   // Spawn 2-4 thick stream points per frame at the rim
   const count = pourFactor > 0.6 ? 4 : pourFactor > 0.3 ? 3 : 2;
@@ -285,22 +286,22 @@ function handlePour() {
     const spread = Math.min(pourFactor * 1.5, 1);
     const lx = (Math.random() * 2 - 1) * CUP_TOP_HW * spread;
     const ly = -HALF_H;
-    const wx = cx + lx * cosT - ly * sinT;
-    const wy = cy + lx * sinT + ly * cosT;
+    const wx = cx + lx * cosV - ly * sinV;
+    const wy = cy + lx * sinV + ly * cosV;
 
     const stream = wx < cx ? streamL : streamR;
     // Thick streams proportional to tilt × water amount
     const w = Math.min(pourFactor * waterPct * 0.2 + 5, 35);
     stream.push({
       x: wx, y: wy,
-      vx: sinT * 0.8 + (Math.random() - 0.5) * 0.6,
-      vy: Math.max(0.5, -cosT * 0.8 + 0.5),
+      vx: sinV * 0.8 + (Math.random() - 0.5) * 0.6,
+      vy: Math.max(0.5, -cosV * 0.8 + 0.5),
       w, age: 0
     });
   }
 
   if (!puddleX) puddleX = cx;
-  puddleX = puddleX * 0.9 + (cx + sinT * 50) * 0.1;
+  puddleX = puddleX * 0.9 + (cx + sinV * 50) * 0.1;
 }
 
 function updateStreams() {
@@ -460,7 +461,7 @@ function render() {
   // ---- Cup + Water (rotated frame) ----
   ctx.save();
   ctx.translate(cx, cy);
-  ctx.rotate(tilt);
+  ctx.rotate(visualTilt);
 
   const baseH = getBaseH();
 
@@ -575,6 +576,7 @@ function update() {
   else tiltTarget = 0;
 
   tilt += (tiltTarget - tilt) * 0.08;
+  visualTilt = accelActive ? 0 : tilt;
 
   updateWave();
   handleOverflow();
