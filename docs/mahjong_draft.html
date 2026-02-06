@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>麻雀ドラフト</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;overflow:hidden;
+  font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Segoe UI',sans-serif;
+  background:#1a472a;color:#fff;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+#app{width:100%;height:100dvh;height:100vh;display:flex;flex-direction:column;max-width:480px;margin:0 auto;position:relative;}
+.screen{display:flex;flex-direction:column;height:100%;width:100%;}
+
+/* Title */
+.title-screen{justify-content:center;align-items:center;gap:16px;padding:20px;
+  background:linear-gradient(180deg,#0d2b18 0%,#1a472a 40%,#2d6b3f 100%);}
+.title-screen h1{font-size:36px;letter-spacing:4px;text-shadow:0 2px 8px rgba(0,0,0,0.5);}
+.title-screen .subtitle{font-size:14px;opacity:0.8;margin-top:-8px;}
+.title-screen .rules{background:rgba(0,0,0,0.3);border-radius:12px;padding:16px;margin:16px 0;font-size:13px;line-height:1.8;max-width:320px;text-align:left;}
+.title-screen .rules b{color:#ffd700;}
+
+/* Buttons */
+.btn{padding:14px 32px;border:none;border-radius:10px;font-size:16px;font-weight:bold;cursor:pointer;transition:all 0.15s;}
+.btn:active{transform:scale(0.96);}
+.btn-primary{background:linear-gradient(180deg,#f9a825,#f57f17);color:#fff;box-shadow:0 3px 8px rgba(0,0,0,0.3);}
+.btn-primary:disabled{background:#666;color:#999;box-shadow:none;transform:none;}
+.btn-secondary{background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);}
+.btn-danger{background:#c62828;color:#fff;}
+.btn-group{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+
+/* Game Header */
+.game-header{background:rgba(0,0,0,0.4);padding:8px 12px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;min-height:40px;}
+.game-header .turn{font-weight:bold;font-size:15px;}
+.game-header .wall-info{font-size:13px;opacity:0.8;}
+.last-badge{background:#c62828;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:bold;animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.6;}}
+
+/* NPC Bar */
+.npc-bar{display:flex;justify-content:space-around;padding:6px 8px;background:rgba(0,0,0,0.2);flex-shrink:0;gap:4px;}
+.npc-badge{font-size:11px;padding:4px 8px;border-radius:6px;background:rgba(255,255,255,0.1);text-align:center;flex:1;}
+.npc-badge.declared{background:rgba(255,215,0,0.3);color:#ffd700;}
+
+/* Messages */
+.msg-area{padding:6px 12px;min-height:28px;flex-shrink:0;}
+.msg{font-size:13px;color:#ffd700;font-weight:bold;text-align:center;animation:fadeIn 0.3s;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-5px);}to{opacity:1;transform:translateY(0);}}
+
+/* Main Area */
+.game-main{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:8px;-webkit-overflow-scrolling:touch;}
+
+/* Draft Sets */
+.draft-instruction{text-align:center;font-size:14px;padding:4px 0;opacity:0.9;}
+.draft-set{display:flex;align-items:center;gap:8px;padding:8px 10px;border:2px solid transparent;border-radius:10px;
+  background:rgba(255,255,255,0.07);cursor:pointer;transition:all 0.15s;}
+.draft-set:active{transform:scale(0.98);}
+.draft-set-selected{border-color:#ffd700;background:rgba(255,215,0,0.12);}
+.set-label{font-size:12px;font-weight:bold;color:rgba(255,255,255,0.6);min-width:18px;text-align:center;}
+.set-tiles{display:flex;gap:3px;flex:1;justify-content:center;}
+
+/* Tiles */
+.tile{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;
+  width:42px;height:58px;border-radius:4px;border:1.5px solid #bbb;cursor:pointer;user-select:none;flex-shrink:0;
+  background:linear-gradient(180deg,#fffff8 0%,#f0e6ce 100%);box-shadow:0 2px 3px rgba(0,0,0,0.2);
+  font-family:'Hiragino Mincho Pro','Yu Mincho','MS Mincho',serif;position:relative;transition:all 0.12s;}
+.tile-num{font-size:20px;font-weight:bold;line-height:1;}
+.tile-suit{font-size:10px;line-height:1;margin-top:1px;}
+.tile-char{font-size:24px;font-weight:bold;line-height:1;}
+.tile-m .tile-num,.tile-m .tile-suit{color:#c62828;}
+.tile-p .tile-num,.tile-p .tile-suit{color:#1565c0;}
+.tile-s .tile-num,.tile-s .tile-suit{color:#2e7d32;}
+.tile-wind .tile-char{color:#37474f;}
+.tile-haku{border-color:#999;}.tile-haku .tile-char{color:#888;}
+.tile-hatsu .tile-char{color:#2e7d32;}
+.tile-chun .tile-char{color:#c62828;}
+.tile-selected{border-color:#ffd700;box-shadow:0 0 8px rgba(255,215,0,0.7);transform:translateY(-3px);}
+.tile-discard{opacity:0.45;border-color:#ef5350;}
+.tile-discard::after{content:'\2715';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:28px;color:#ef5350;font-weight:bold;font-family:sans-serif;}
+.tile-small{width:32px;height:44px;}.tile-small .tile-num{font-size:15px;}.tile-small .tile-suit{font-size:8px;}.tile-small .tile-char{font-size:18px;}
+.tile-back{background:linear-gradient(135deg,#1565c0,#0d47a1);border-color:#0d47a1;width:32px;height:44px;}
+.tile-back::after{content:'';display:block;width:16px;height:22px;border:1px solid rgba(255,255,255,0.3);border-radius:2px;}
+
+/* Hand Area */
+.hand-section{flex-shrink:0;background:rgba(0,0,0,0.3);padding:8px 8px 12px;border-top:1px solid rgba(255,255,255,0.1);}
+.hand-label{font-size:12px;opacity:0.7;text-align:center;margin-bottom:4px;}
+.hand-tiles{display:flex;flex-wrap:wrap;justify-content:center;gap:3px;}
+
+/* Action Bar */
+.action-bar{padding:8px;display:flex;justify-content:center;gap:10px;flex-shrink:0;}
+
+/* Declare Prompt */
+.declare-box{background:rgba(255,215,0,0.1);border:2px solid #ffd700;border-radius:12px;padding:16px;margin:8px;text-align:center;}
+.declare-box h3{color:#ffd700;margin-bottom:8px;font-size:18px;}
+.declare-box .note{font-size:12px;opacity:0.7;margin:8px 0 12px;}
+.yaku-preview{background:rgba(0,0,0,0.3);border-radius:8px;padding:10px;margin:8px 0;}
+.yaku-item{display:flex;justify-content:space-between;padding:3px 0;font-size:14px;}
+.yaku-item .han{color:#ffd700;font-weight:bold;}
+.yaku-total{border-top:1px solid rgba(255,255,255,0.2);margin-top:6px;padding-top:6px;font-weight:bold;font-size:16px;text-align:right;color:#ffd700;}
+
+/* Discard Mode */
+.discard-info{text-align:center;padding:8px;font-size:14px;color:#ff8a80;}
+.discard-counter{font-size:18px;font-weight:bold;color:#ffd700;margin:4px 0;}
+
+/* Result Screen */
+.result-screen{overflow-y:auto;padding:12px;gap:12px;-webkit-overflow-scrolling:touch;}
+.result-header{text-align:center;padding:12px;font-size:22px;font-weight:bold;}
+.result-player{background:rgba(255,255,255,0.08);border-radius:12px;padding:12px;margin-bottom:10px;}
+.result-player.winner{background:rgba(255,215,0,0.12);border:2px solid #ffd700;}
+.result-rank{font-size:24px;font-weight:bold;float:left;margin-right:10px;line-height:1;}
+.result-rank.r1{color:#ffd700;}.result-rank.r2{color:#ccc;}.result-rank.r3{color:#cd7f32;}.result-rank.r4{color:#888;}
+.result-name{font-size:16px;font-weight:bold;}
+.result-han{font-size:14px;color:#ffd700;margin-left:8px;}
+.result-yaku-list{margin:6px 0;font-size:13px;color:rgba(255,255,255,0.8);}
+.result-yaku-list span{display:inline-block;background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px;margin:2px;}
+.result-tiles{display:flex;flex-wrap:wrap;gap:2px;margin-top:6px;justify-content:center;}
+.result-no-yaku{font-size:13px;opacity:0.5;margin:4px 0;}
+
+/* Overlay */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:100;animation:fadeIn 0.3s;}
+.overlay-content{background:#1a472a;border:2px solid #ffd700;border-radius:16px;padding:24px;text-align:center;max-width:300px;}
+.overlay-content h2{color:#ffd700;margin-bottom:12px;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// ========== CONSTANTS ==========
+const NK=['','一','二','三','四','五','六','七','八','九'];
+const JI=['','東','南','西','北','白','發','中'];
+const SN={m:'萬',p:'筒',s:'索'};
+const ALL_TYPES=[];
+for(const s of['m','p','s'])for(let n=1;n<=9;n++)ALL_TYPES.push(n+s);
+for(let n=1;n<=7;n++)ALL_TYPES.push(n+'z');
+
+// ========== TILE UTILITIES ==========
+function pt(id){return{num:parseInt(id),suit:id.slice(-1)};}
+function sv(id){const{num,suit}=pt(id);return{m:0,p:100,s:200,z:300}[suit]+num;}
+function sortH(h){return[...h].sort((a,b)=>sv(a)-sv(b));}
+function countT(h,id){let c=0;for(const t of h)if(t===id)c++;return c;}
+function removeT(h,id,cnt){const r=[...h];let rm=0;for(let i=r.length-1;i>=0&&rm<cnt;i--){if(r[i]===id){r.splice(i,1);rm++;}}return r;}
+function isTermHon(id){const{num,suit}=pt(id);return suit==='z'||num===1||num===9;}
+
+function createWall(){
+  const w=[];for(const t of ALL_TYPES)for(let i=0;i<4;i++)w.push(t);
+  for(let i=w.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[w[i],w[j]]=[w[j],w[i]];}
+  return w;
+}
+
+function shuffleArr(a){const r=[...a];for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]];}return r;}
+
+// ========== HAND DECOMPOSITION ==========
+function findAllMentsu(tiles){
+  if(tiles.length===0)return[[]];
+  if(tiles.length%3!==0)return[];
+  const s=sortH(tiles),f=s[0],{num,suit}=pt(f),res=[];
+  if(countT(s,f)>=3){
+    const rem=removeT(s,f,3),sub=findAllMentsu(rem);
+    for(const x of sub)res.push([{type:'kou',tile:f},...x]);
+  }
+  if(suit!=='z'&&num<=7){
+    const n1=(num+1)+suit,n2=(num+2)+suit;
+    if(countT(s,n1)>=1&&countT(s,n2)>=1){
+      let rem=removeT(s,f,1);rem=removeT(rem,n1,1);rem=removeT(rem,n2,1);
+      const sub=findAllMentsu(rem);
+      for(const x of sub)res.push([{type:'shun',tile:f},...x]);
+    }
+  }
+  return res;
+}
+
+function isSevenPairs(h){
+  if(h.length!==14)return false;
+  const s=sortH(h);
+  for(let i=0;i<14;i+=2)if(s[i]!==s[i+1])return false;
+  const ps=new Set();for(let i=0;i<14;i+=2)ps.add(s[i]);
+  return ps.size===7;
+}
+
+function isKokushi(h){
+  if(h.length!==14)return false;
+  const req=['1m','9m','1p','9p','1s','9s','1z','2z','3z','4z','5z','6z','7z'];
+  const c=[...h];
+  for(const r of req){const i=c.indexOf(r);if(i===-1)return false;c.splice(i,1);}
+  return req.includes(c[0]);
+}
+
+function findWinDecomps(hand){
+  if(hand.length!==14)return[];
+  const res=[],s=sortH(hand),uniq=[...new Set(s)];
+  for(const p of uniq){
+    if(countT(s,p)>=2){
+      const rem=removeT(s,p,2),ms=findAllMentsu(rem);
+      for(const m of ms)if(m.length===4)res.push({type:'regular',pair:p,mentsu:m});
+    }
+  }
+  if(isSevenPairs(hand))res.push({type:'seven_pairs'});
+  if(isKokushi(hand))res.push({type:'kokushi'});
+  return res;
+}
+
+// ========== YAKU DETECTION ==========
+function detectYaku(hand,decomp,pidx){
+  const yaku=[];
+  if(decomp.type==='kokushi')return[{name:'国士無双',han:13}];
+  if(decomp.type==='seven_pairs'){
+    yaku.push({name:'七対子',han:2});
+    addGeneral(yaku,hand,pidx);
+    return resolveExcl(yaku);
+  }
+  const{pair,mentsu}=decomp;
+  const sw=['1z','2z','3z','4z'][pidx],rw='1z';
+  for(const m of mentsu){
+    if(m.type!=='kou')continue;
+    if(m.tile==='5z')yaku.push({name:'役牌（白）',han:1});
+    if(m.tile==='6z')yaku.push({name:'役牌（發）',han:1});
+    if(m.tile==='7z')yaku.push({name:'役牌（中）',han:1});
+    if(m.tile===rw)yaku.push({name:'場風牌',han:1});
+    if(m.tile===sw)yaku.push({name:'自風牌',han:1});
+  }
+  // Pinfu
+  const allShun=mentsu.every(m=>m.type==='shun');
+  const ykTiles=new Set(['5z','6z','7z',rw,sw]);
+  if(allShun&&!ykTiles.has(pair))yaku.push({name:'ピンフ',han:1});
+  // Iipeiko/Ryanpeiko
+  const shunT=mentsu.filter(m=>m.type==='shun').map(m=>m.tile);
+  const sc={};shunT.forEach(t=>sc[t]=(sc[t]||0)+1);
+  const ip=Object.values(sc).filter(c=>c>=2).length;
+  if(ip>=2)yaku.push({name:'二盃口',han:3});
+  else if(ip===1)yaku.push({name:'一盃口',han:1});
+  // Sanshoku doujun
+  const sbn={};
+  for(const m of mentsu)if(m.type==='shun'){const{num,suit}=pt(m.tile);if(!sbn[num])sbn[num]=new Set();sbn[num].add(suit);}
+  if(Object.values(sbn).some(s=>s.size>=3))yaku.push({name:'三色同順',han:2});
+  // Ittsu
+  for(const st of['m','p','s']){
+    const ns=mentsu.filter(m=>m.type==='shun'&&pt(m.tile).suit===st).map(m=>pt(m.tile).num);
+    if(ns.includes(1)&&ns.includes(4)&&ns.includes(7)){yaku.push({name:'一気通貫',han:2});break;}
+  }
+  // Koutsu-based
+  const kc=mentsu.filter(m=>m.type==='kou').length;
+  if(kc===4)yaku.push({name:'四暗刻',han:13});
+  else if(kc===3)yaku.push({name:'三暗刻',han:2});
+  if(kc===4)yaku.push({name:'対々和',han:2});
+  // Sanshoku doukou
+  const kbn={};
+  for(const m of mentsu)if(m.type==='kou'){const{num,suit}=pt(m.tile);if(suit!=='z'){if(!kbn[num])kbn[num]=new Set();kbn[num].add(suit);}}
+  if(Object.values(kbn).some(s=>s.size>=3))yaku.push({name:'三色同刻',han:2});
+  // Dragons
+  const dk=mentsu.filter(m=>m.type==='kou'&&['5z','6z','7z'].includes(m.tile)).length;
+  const dp=['5z','6z','7z'].includes(pair);
+  if(dk===3)yaku.push({name:'大三元',han:13});
+  else if(dk===2&&dp)yaku.push({name:'小三元',han:2});
+  // Winds
+  const wk=mentsu.filter(m=>m.type==='kou'&&['1z','2z','3z','4z'].includes(m.tile)).length;
+  const wp=['1z','2z','3z','4z'].includes(pair);
+  if(wk===4)yaku.push({name:'大四喜',han:13});
+  else if(wk===3&&wp)yaku.push({name:'小四喜',han:13});
+  addGeneral(yaku,hand,pidx);
+  return resolveExcl(yaku);
+}
+
+function addGeneral(yaku,hand){
+  if(hand.every(t=>!isTermHon(t)))yaku.push({name:'タンヤオ',han:1});
+  const suits=new Set(hand.map(t=>pt(t).suit));
+  const ss=['m','p','s'].filter(s=>suits.has(s));
+  const hz=suits.has('z');
+  if(ss.length===1&&!hz)yaku.push({name:'清一色',han:6});
+  else if(ss.length===1&&hz)yaku.push({name:'混一色',han:3});
+  if(hand.every(t=>isTermHon(t))){
+    if(hand.every(t=>pt(t).suit==='z'))yaku.push({name:'字一色',han:13});
+    else if(hand.every(t=>pt(t).suit!=='z'))yaku.push({name:'清老頭',han:13});
+    else yaku.push({name:'混老頭',han:2});
+  }
+}
+
+function resolveExcl(yaku){
+  const n=new Set(yaku.map(y=>y.name));
+  if(n.has('清一色'))yaku=yaku.filter(y=>y.name!=='混一色');
+  if(n.has('四暗刻'))yaku=yaku.filter(y=>!['対々和','三暗刻'].includes(y.name));
+  if(n.has('大三元'))yaku=yaku.filter(y=>!['小三元','役牌（白）','役牌（發）','役牌（中）'].includes(y.name));
+  if(n.has('二盃口'))yaku=yaku.filter(y=>y.name!=='一盃口');
+  if(n.has('清老頭'))yaku=yaku.filter(y=>y.name!=='混老頭');
+  if(n.has('大四喜'))yaku=yaku.filter(y=>!['小四喜','場風牌','自風牌'].includes(y.name));
+  if(n.has('字一色'))yaku=yaku.filter(y=>y.name!=='混老頭');
+  // Deduplicate
+  const seen=new Set();
+  yaku=yaku.filter(y=>{if(seen.has(y.name))return false;seen.add(y.name);return true;});
+  return yaku;
+}
+
+function getBestScore(hand,pidx){
+  const ds=findWinDecomps(hand);
+  if(ds.length===0)return{han:0,yaku:[],isWin:false};
+  let best={han:0,yaku:[],isWin:false};
+  for(const d of ds){
+    const yl=detectYaku(hand,d,pidx);
+    const th=yl.reduce((s,y)=>s+y.han,0);
+    if(th>best.han||(th===best.han&&yl.length>best.yaku.length)){
+      best={han:th,yaku:yl,isWin:th>0};
+    }
+  }
+  return best;
+}
+
+// ========== NPC AI ==========
+function npcEvalSet(hand,set){
+  let score=0;
+  for(const tile of set){
+    const{num,suit}=pt(tile);
+    const same=countT(hand,tile);
+    score+=same*6;
+    if(suit!=='z'){
+      for(const h of hand){
+        const hp=pt(h);
+        if(hp.suit===suit){
+          const d=Math.abs(hp.num-num);
+          if(d===1)score+=4;else if(d===2)score+=2;
+        }
+      }
+    }
+    if(['5z','6z','7z'].includes(tile))score+=3;
+    // Suit concentration bonus
+    const suitCount=hand.filter(h=>pt(h).suit===suit).length;
+    score+=suitCount*0.5;
+  }
+  return score;
+}
+
+function npcPickSet(hand,sets){
+  let bestIdx=0,bestScore=-1;
+  for(let i=0;i<sets.length;i++){
+    const s=npcEvalSet(hand,sets[i]);
+    if(s>bestScore){bestScore=s;bestIdx=i;}
+  }
+  return bestIdx;
+}
+
+function npcSelectDiscards(hand,count){
+  const scores=hand.map((tile,idx)=>{
+    let s=0;const{num,suit}=pt(tile);
+    const same=countT(hand,tile)-1;
+    s+=same*8;
+    if(suit!=='z'){
+      for(const h of hand){
+        if(h===tile)continue;
+        const hp=pt(h);
+        if(hp.suit===suit){
+          const d=Math.abs(hp.num-num);
+          if(d===1)s+=5;else if(d===2)s+=2;
+        }
+      }
+    }else{
+      s+=countT(hand,tile)>1?6:0;
+      if(['5z','6z','7z'].includes(tile))s+=4;
+    }
+    const suitCnt=hand.filter(h=>pt(h).suit===suit).length;
+    s+=suitCnt*0.3;
+    return{idx,s};
+  });
+  scores.sort((a,b)=>a.s-b.s);
+  return scores.slice(0,count).map(x=>x.idx).sort((a,b)=>b-a);
+}
+
+// ========== GAME STATE ==========
+let G={phase:'title'};
+
+function initGame(){
+  G={
+    phase:'draft',
+    wall:createWall(),
+    players:[
+      {name:'あなた',hand:[],discards:[],isNPC:false,declared:false},
+      {name:'COM南',hand:[],discards:[],isNPC:true,declared:false},
+      {name:'COM西',hand:[],discards:[],isNPC:true,declared:false},
+      {name:'COM北',hand:[],discards:[],isNPC:true,declared:false},
+    ],
+    turn:1,
+    selSet:-1,
+    draftSets:[],
+    selDisc:new Set(),
+    discNeed:0,
+    endDecl:false,
+    endBy:-1,
+    lastTurn:false,
+    msg:'',
+    results:null,
+  };
+  startTurn();
+}
+
+function startTurn(){
+  if(G.endDecl&&!G.lastTurn){G.lastTurn=true;G.msg='【最終ターン】';}
+  if(G.wall.length<16){endGame();return;}
+  const drawn=G.wall.splice(0,16);
+  G.draftSets=[drawn.slice(0,4),drawn.slice(4,8),drawn.slice(8,12),drawn.slice(12,16)];
+  // Sort each set for display
+  G.draftSets=G.draftSets.map(s=>sortH(s));
+  G.selSet=-1;
+  G.phase='draft';
+  render();
+}
+
+function confirmDraft(){
+  if(G.selSet<0)return;
+  const pSet=G.draftSets[G.selSet];
+  G.players[0].hand.push(...pSet);
+  G.players[0].hand=sortH(G.players[0].hand);
+  // Assign remaining to NPCs via AI selection
+  const rem=[];
+  for(let i=0;i<4;i++)if(i!==G.selSet)rem.push(G.draftSets[i]);
+  const avail=[...rem];
+  const npcOrder=shuffleArr([1,2,3]);// Random pick order among NPCs
+  for(const ni of npcOrder){
+    const npc=G.players[ni];
+    const pick=npcPickSet(npc.hand,avail);
+    npc.hand.push(...avail[pick]);
+    npc.hand=sortH(npc.hand);
+    avail.splice(pick,1);
+  }
+  // NPC discards
+  for(let i=1;i<=3;i++){
+    const p=G.players[i];
+    if(p.hand.length>14){
+      const cnt=p.hand.length-14;
+      const idxs=npcSelectDiscards(p.hand,cnt);
+      for(const idx of idxs){p.discards.push(p.hand[idx]);p.hand.splice(idx,1);}
+    }
+  }
+  // Player discard check
+  if(G.players[0].hand.length>14){
+    G.discNeed=G.players[0].hand.length-14;
+    G.selDisc=new Set();
+    G.phase='discard';
+    G.msg=`${G.discNeed}枚捨ててください`;
+    render();
+  }else{
+    afterDiscard();
+  }
+}
+
+function toggleDiscard(idx){
+  if(G.selDisc.has(idx))G.selDisc.delete(idx);
+  else if(G.selDisc.size<G.discNeed)G.selDisc.add(idx);
+  render();
+}
+
+function confirmDiscard(){
+  if(G.selDisc.size!==G.discNeed)return;
+  const idxs=[...G.selDisc].sort((a,b)=>b-a);
+  for(const idx of idxs){G.players[0].discards.push(G.players[0].hand[idx]);G.players[0].hand.splice(idx,1);}
+  G.selDisc=new Set();G.discNeed=0;
+  afterDiscard();
+}
+
+function afterDiscard(){
+  if(G.lastTurn){endGame();return;}
+  if(!G.endDecl){
+    // Check player declaration
+    if(G.players[0].hand.length===14){
+      const sc=getBestScore(G.players[0].hand,0);
+      if(sc.isWin){
+        G.phase='declare';
+        G.msg='';
+        render();
+        return;
+      }
+    }
+    // Check NPC declarations
+    checkNPCDecl();
+    if(G.endDecl){
+      G.phase='npc_decl';
+      render();
+      setTimeout(()=>nextTurn(),1500);
+      return;
+    }
+  }
+  nextTurn();
+}
+
+function checkNPCDecl(){
+  for(let i=1;i<=3;i++){
+    if(G.players[i].hand.length===14){
+      const sc=getBestScore(G.players[i].hand,i);
+      if(sc.isWin){
+        G.endDecl=true;G.endBy=i;G.players[i].declared=true;
+        G.msg=`${G.players[i].name}が終了宣言！`;
+        return;
+      }
+    }
+  }
+}
+
+function playerDeclare(){
+  G.endDecl=true;G.endBy=0;G.players[0].declared=true;
+  G.msg='あなたが終了宣言！';
+  nextTurn();
+}
+
+function skipDeclare(){
+  checkNPCDecl();
+  if(G.endDecl){
+    G.phase='npc_decl';
+    render();
+    setTimeout(()=>nextTurn(),1500);
+    return;
+  }
+  nextTurn();
+}
+
+function nextTurn(){G.turn++;startTurn();}
+
+function endGame(){
+  const results=G.players.map((p,i)=>{
+    const sc=p.hand.length===14?getBestScore(p.hand,i):{han:0,yaku:[],isWin:false};
+    return{name:p.name,hand:[...p.hand],...sc,declared:p.declared,pidx:i};
+  });
+  results.sort((a,b)=>{
+    if(b.han!==a.han)return b.han-a.han;
+    if(b.yaku.length!==a.yaku.length)return b.yaku.length-a.yaku.length;
+    const am=Math.max(0,...a.yaku.map(y=>y.han)),bm=Math.max(0,...b.yaku.map(y=>y.han));
+    if(bm!==am)return bm-am;
+    return(b.declared?1:0)-(a.declared?1:0);
+  });
+  G.results=results;G.phase='result';render();
+}
+
+// ========== RENDERING ==========
+function tilHTML(id,opts={}){
+  const{num,suit}=pt(id);
+  const cls=['tile'];
+  let inner='';
+  if(suit==='z'){
+    const zc={1:'wind',2:'wind',3:'wind',4:'wind',5:'haku',6:'hatsu',7:'chun'};
+    cls.push('tile-'+zc[num]);
+    inner=`<span class="tile-char">${JI[num]}</span>`;
+  }else{
+    cls.push('tile-'+suit);
+    inner=`<span class="tile-num">${NK[num]}</span><span class="tile-suit">${SN[suit]}</span>`;
+  }
+  if(opts.selected)cls.push('tile-selected');
+  if(opts.discard)cls.push('tile-discard');
+  if(opts.small)cls.push('tile-small');
+  const da=opts.action?` data-action="${opts.action}" data-idx="${opts.idx}"`:'';
+  return`<div class="${cls.join(' ')}"${da}>${inner}</div>`;
+}
+
+function renderHeader(){
+  return`<div class="game-header">
+    <span class="turn">ターン ${G.turn}</span>
+    ${G.lastTurn?'<span class="last-badge">FINAL</span>':''}
+    <span class="wall-info">山: ${G.wall.length}枚</span>
+  </div>
+  <div class="npc-bar">
+    ${G.players.slice(1).map(p=>`<div class="npc-badge${p.declared?' declared':''}">${p.name}<br>${p.hand.length}枚${p.declared?' 宣言済':''}</div>`).join('')}
+  </div>
+  ${G.msg?`<div class="msg-area"><div class="msg">${G.msg}</div></div>`:''}`;
+}
+
+function renderHand(phase){
+  const h=G.players[0].hand;
+  if(h.length===0)return`<div class="hand-section"><div class="hand-label">手牌 (0枚)</div></div>`;
+  const tiles=h.map((t,i)=>{
+    if(phase==='discard')return tilHTML(t,{discard:G.selDisc.has(i),action:'toggle-discard',idx:i});
+    return tilHTML(t);
+  }).join('');
+  return`<div class="hand-section"><div class="hand-label">手牌 (${h.length}枚)</div><div class="hand-tiles">${tiles}</div></div>`;
+}
+
+function render(){
+  const app=document.getElementById('app');
+  switch(G.phase){
+    case'title':app.innerHTML=renderTitle();break;
+    case'draft':app.innerHTML=renderDraft();break;
+    case'discard':app.innerHTML=renderDiscardPhase();break;
+    case'declare':app.innerHTML=renderDeclarePhase();break;
+    case'npc_decl':app.innerHTML=renderNpcDecl();break;
+    case'result':app.innerHTML=renderResult();break;
+  }
+}
+
+function renderNpcDecl(){
+  return`<div class="screen">
+    ${renderHeader()}
+    <div class="game-main" style="justify-content:center;align-items:center;">
+      <div class="declare-box" style="border-color:#ff8a80;">
+        <h3 style="color:#ff8a80;">${G.msg}</h3>
+        <p class="note">次のターンが最終ターンです</p>
+      </div>
+    </div>
+    ${renderHand('view')}
+  </div>`;
+}
+
+function renderTitle(){
+  return`<div class="screen title-screen">
+    <h1>麻雀ドラフト</h1>
+    <p class="subtitle">ターン制ドラフト型 麻雀役構築ゲーム</p>
+    <div class="rules">
+      <b>遊び方</b><br>
+      毎ターン<b>4枚1セット</b>が4組出現<br>
+      1セットを選んで手牌を構築！<br>
+      手牌上限は<b>14枚</b>（超過分は捨てる）<br>
+      麻雀の<b>役</b>を完成させて高得点を目指そう<br>
+      誰かが<b>和了宣言</b>→あと1巡で終了<br>
+      <b>翻数の合計</b>で順位が決まる！
+    </div>
+    <button class="btn btn-primary" data-action="start">ゲーム開始</button>
+  </div>`;
+}
+
+function renderDraft(){
+  const sets=G.draftSets.map((s,i)=>{
+    const sel=G.selSet===i;
+    const tiles=s.map(t=>tilHTML(t)).join('');
+    return`<div class="draft-set${sel?' draft-set-selected':''}" data-action="select-set" data-idx="${i}">
+      <span class="set-label">${i+1}</span>
+      <div class="set-tiles">${tiles}</div>
+    </div>`;
+  }).join('');
+  return`<div class="screen">
+    ${renderHeader()}
+    <div class="game-main">
+      <div class="draft-instruction">セットを1つ選んでください</div>
+      ${sets}
+    </div>
+    <div class="action-bar">
+      <button class="btn btn-primary" data-action="confirm-draft"${G.selSet<0?' disabled':''}>決定</button>
+    </div>
+    ${renderHand('view')}
+  </div>`;
+}
+
+function renderDiscardPhase(){
+  return`<div class="screen">
+    ${renderHeader()}
+    <div class="game-main">
+      <div class="discard-info">
+        捨てる牌を選んでください
+        <div class="discard-counter">${G.selDisc.size} / ${G.discNeed} 枚</div>
+      </div>
+    </div>
+    <div class="action-bar">
+      <button class="btn btn-primary" data-action="confirm-discard"${G.selDisc.size!==G.discNeed?' disabled':''}>捨てる</button>
+    </div>
+    ${renderHand('discard')}
+  </div>`;
+}
+
+function renderDeclarePhase(){
+  const sc=getBestScore(G.players[0].hand,0);
+  const yakuHtml=sc.yaku.map(y=>`<div class="yaku-item"><span>${y.name}</span><span class="han">${y.han}翻</span></div>`).join('');
+  return`<div class="screen">
+    ${renderHeader()}
+    <div class="game-main">
+      <div class="declare-box">
+        <h3>和了形が完成しました！</h3>
+        <div class="yaku-preview">
+          ${yakuHtml}
+          <div class="yaku-total">合計 ${sc.han}翻</div>
+        </div>
+        <p class="note">宣言すると全員あと1ターンで終了</p>
+        <div class="btn-group">
+          <button class="btn btn-primary" data-action="declare">終了宣言</button>
+          <button class="btn btn-secondary" data-action="skip-declare">続行</button>
+        </div>
+      </div>
+    </div>
+    ${renderHand('view')}
+  </div>`;
+}
+
+function renderResult(){
+  const rs=G.results;
+  const ranks=['1st','2nd','3rd','4th'];
+  const rLabels=['🥇','🥈','🥉','4'];
+  let html=`<div class="screen result-screen">
+    <div class="result-header">ゲーム終了</div>`;
+  rs.forEach((r,i)=>{
+    const isWinner=i===0&&r.han>0;
+    const tiles=r.hand.map(t=>tilHTML(t,{small:true})).join('');
+    const yakuStr=r.yaku.length>0?r.yaku.map(y=>`<span>${y.name}(${y.han}翻)</span>`).join(''):'';
+    html+=`<div class="result-player${isWinner?' winner':''}">
+      <span class="result-rank r${i+1}">${i+1}位</span>
+      <span class="result-name">${r.name}</span>
+      <span class="result-han">${r.han>0?r.han+'翻':'役なし'}</span>
+      ${r.declared?'<span style="color:#ffd700;font-size:12px;margin-left:4px;">宣言者</span>':''}
+      <div class="result-tiles">${tiles}</div>
+      ${yakuStr?`<div class="result-yaku-list">${yakuStr}</div>`:`<div class="result-no-yaku">和了ならず</div>`}
+    </div>`;
+  });
+  html+=`<div style="text-align:center;padding:16px;">
+    <button class="btn btn-primary" data-action="restart">もう一度</button>
+  </div></div>`;
+  return html;
+}
+
+// ========== EVENT HANDLING ==========
+document.addEventListener('DOMContentLoaded',()=>{
+  render();
+  document.getElementById('app').addEventListener('click',e=>{
+    const el=e.target.closest('[data-action]');
+    if(!el)return;
+    const act=el.dataset.action;
+    const idx=el.dataset.idx!==undefined?parseInt(el.dataset.idx):-1;
+    switch(act){
+      case'start':initGame();break;
+      case'select-set':G.selSet=idx;render();break;
+      case'confirm-draft':confirmDraft();break;
+      case'toggle-discard':toggleDiscard(idx);break;
+      case'confirm-discard':confirmDiscard();break;
+      case'declare':playerDeclare();break;
+      case'skip-declare':skipDeclare();break;
+      case'restart':G={phase:'title'};render();break;
+    }
+  });
+});
+</script>
+</body>
+</html>
