@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>コップの水シミュレーション</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0d1b2a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    font-family: 'Segoe UI', sans-serif;
+    color: #fff;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+  }
+  canvas { display: block; }
+  .water-label {
+    position: fixed;
+    top: 16px;
+    left: 0; right: 0;
+    text-align: center;
+    font-size: 1.6rem;
+    font-weight: bold;
+    color: #4af;
+    pointer-events: none;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  }
+  .hint {
+    position: fixed;
+    bottom: 60px;
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.35);
+    text-align: center;
+    pointer-events: none;
+  }
+  .controls {
+    position: fixed;
+    bottom: 16px;
+    display: flex;
+    gap: 10px;
+  }
+  button {
+    padding: 8px 20px;
+    background: rgba(40,80,160,0.35);
+    border: 1px solid rgba(80,140,255,0.3);
+    border-radius: 8px;
+    color: #aac;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  button:active { background: rgba(40,80,160,0.7); }
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+<div class="water-label" id="label">100%</div>
+<div class="hint">← → キーで傾ける ｜ スマホは傾けて操作</div>
+<div class="controls">
+  <button id="resetBtn">リセット</button>
+  <button id="accelBtn" style="display:none">加速度センサー ON</button>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ===== Cup geometry (local coords, origin=center, Y-down) =====
+const CUP_TOP_HW = 80;
+const CUP_BOT_HW = 50;
+const CUP_H = 260;
+const HALF_H = CUP_H / 2;
+
+function cupHalfW(h) {
+  return CUP_BOT_HW + (CUP_TOP_HW - CUP_BOT_HW) * h / CUP_H;
+}
+function volumeAt(h) {
+  return 2 * CUP_BOT_HW * h + (CUP_TOP_HW - CUP_BOT_HW) * h * h / CUP_H;
+}
+const FULL_VOL = volumeAt(CUP_H);
+function heightFromVol(v) {
+  const a = (CUP_TOP_HW - CUP_BOT_HW) / CUP_H;
+  const b = 2 * CUP_BOT_HW;
+  if (a < 1e-9) return v / b;
+  return (-b + Math.sqrt(b * b + 4 * a * v)) / (2 * a);
+}
+
+// ===== Wave simulation =====
+const N = 50;
+let cur = new Float32Array(N);
+let prev = new Float32Array(N);
+const C2 = 0.35;
+const DAMP = 0.993;
+const GRAV = 2.5;
+const TENSION = 0.03;
+const SPILL_THRESH = 4;
+const MENISCUS_H = 3;
+
+// ===== State =====
+let waterPct = 100;
+let tilt = 0;
+let tiltTarget = 0;
+const MAX_TILT = Math.PI / 2; // 90°
+
+// ===== Spill system =====
+const streamL = [];
+const streamR = [];
+const drops = [];
+let puddleSize = 0;
+let puddleX = 0;
+
+// ===== Input =====
+const keys = {};
+let accelActive = false;
+let accelTilt = 0;
+document.addEventListener('keydown', e => { keys[e.key] = true; });
+document.addEventListener('keyup', e => { keys[e.key] = false; });
+
+const accelBtn = document.getElementById('accelBtn');
+if (window.DeviceOrientationEvent) {
+  accelBtn.style.display = 'inline-block';
+  function onOrient(e) {
+    if (e.gamma != null) {
+      accelTilt = Math.max(-MAX_TILT, Math.min(MAX_TILT, e.gamma * Math.PI / 180 * 2));
+    }
+  }
+  accelBtn.addEventListener('click', () => {
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+      DeviceOrientationEvent.requestPermission().then(r => {
+        if (r === 'granted') {
+          window.addEventListener('deviceorientation', onOrient);
+          accelActive = true;
+          accelBtn.textContent = 'センサー ON ✓';
+        }
+      });
+    } else {
+      window.addEventListener('deviceorientation', onOrient);
+      accelActive = true;
+      accelBtn.textContent = 'センサー ON ✓';
+    }
+  });
+}
+
+// ===== Physics =====
+function getBaseH() {
+  return heightFromVol(waterPct / 100 * FULL_VOL);
+}
+
+function updateWave() {
+  const baseH = getBaseH();
+  if (baseH < 0.5) { cur.fill(0); prev.fill(0); return; }
+
+  const next = new Float32Array(N);
+  const sinT = Math.sin(tilt);
+
+  for (let i = 1; i < N - 1; i++) {
+    const lap = cur[i + 1] + cur[i - 1] - 2 * cur[i];
+    let biharm = 0;
+    if (i >= 2 && i <= N - 3) {
+      biharm = cur[i - 2] - 4 * cur[i - 1] + 6 * cur[i] - 4 * cur[i + 1] + cur[i + 2];
+    }
+    const xn = 2 * i / (N - 1) - 1;
+    next[i] = (2 * cur[i] - prev[i] + C2 * lap - TENSION * biharm + GRAV * sinT * xn) * DAMP;
+    next[i] = Math.max(-CUP_H * 0.6, Math.min(CUP_H * 0.6, next[i]));
+  }
+
+  next[0] = next[1];
+  next[N - 1] = next[N - 2];
+
+  let mean = 0;
+  for (let i = 0; i < N; i++) mean += next[i];
+  mean /= N;
+  for (let i = 0; i < N; i++) next[i] -= mean;
+
+  prev = cur;
+  cur = next;
+}
+
+// --- Overflow: wave-based rim spill ---
+function handleOverflow() {
+  const baseH = getBaseH();
+  if (baseH < 1 || waterPct < 0.5) return;
+
+  const W = canvas.width, H = canvas.height;
+  const cx = W / 2, cy = H * 0.48;
+  const cosT = Math.cos(tilt), sinT = Math.sin(tilt);
+  const hw = cupHalfW(baseH);
+  const absTilt = Math.abs(tilt);
+
+  // Threshold drops to 0 as tilt increases — water escapes more easily
+  const effThresh = SPILL_THRESH * Math.max(0, 1 - absTilt / 0.5);
+
+  let spillSum = 0;
+  let lSum = 0, lWx = 0, lCnt = 0;
+  let rSum = 0, rWx = 0, rCnt = 0;
+
+  for (let i = 0; i < N; i++) {
+    const surfH = baseH + cur[i];
+    const ovf = surfH - CUP_H;
+
+    if (ovf > effThresh) {
+      const actual = ovf - effThresh;
+      spillSum += actual;
+      cur[i] = CUP_H - baseH + effThresh * 0.2;
+
+      const t = i / (N - 1);
+      const lx = -hw + t * 2 * hw;
+      if (lx <= 0) { lSum += actual; lWx += lx * actual; lCnt++; }
+      else         { rSum += actual; rWx += lx * actual; rCnt++; }
+    }
+    if (baseH + cur[i] < 0) cur[i] = -baseH;
+  }
+
+  // Spawn multiple ribbon points for thick streams
+  const spawnSide = (sum, wx_sum, cnt, stream, sign) => {
+    if (cnt === 0) return;
+    const avgX = wx_sum / sum;
+    const ly = -HALF_H;
+    const wx = cx + avgX * cosT - ly * sinT;
+    const wy = cy + avgX * sinT + ly * cosT;
+    // Width scales with overflow — much thicker
+    const w = Math.min(sum * 1.2 + 4, 30);
+    stream.push({
+      x: wx, y: wy,
+      vx: sign * Math.cos(tilt) * 1.5,
+      vy: sign * Math.sin(tilt) * 0.3,
+      w, age: 0
+    });
+    // Extra point for heavy flow → fatter stream
+    if (sum > 8) {
+      stream.push({
+        x: wx + (Math.random() - 0.5) * 6,
+        y: wy + (Math.random() - 0.5) * 3,
+        vx: sign * Math.cos(tilt) * 1.2 + (Math.random() - 0.5),
+        vy: sign * Math.sin(tilt) * 0.2 + Math.random() * 0.5,
+        w: w * 0.7, age: 0
+      });
+    }
+  };
+  spawnSide(lSum, lWx, lCnt, streamL, -1);
+  spawnSide(rSum, rWx, rCnt, streamR,  1);
+
+  if (spillSum > 0) {
+    // Faster drain — more dramatic water loss
+    const volLoss = spillSum * (2 * CUP_TOP_HW / N);
+    waterPct = Math.max(0, waterPct - volLoss / FULL_VOL * 100 * 0.5);
+    puddleX = puddleX * 0.92 + (cx + sinT * (CUP_TOP_HW + 30)) * 0.08;
+  }
+}
+
+// --- Pour: gravity-driven pour at steep tilts ---
+function handlePour() {
+  const absTilt = Math.abs(tilt);
+  if (absTilt < 0.35 || waterPct < 0.5) return; // kicks in past ~20°
+
+  // Ramp: 0 at 20°, 1 at 90°
+  const pourFactor = Math.min(1, (absTilt - 0.35) / (Math.PI / 2 - 0.35));
+  // Aggressive cubic ramp — water rushes out at steep angles
+  const pourRate = pourFactor * pourFactor * pourFactor * waterPct * 0.06;
+  waterPct = Math.max(0, waterPct - pourRate);
+
+  if (waterPct < 0.5) return;
+
+  const W = canvas.width, H = canvas.height;
+  const cx = W / 2, cy = H * 0.48;
+  const cosT = Math.cos(tilt), sinT = Math.sin(tilt);
+
+  // Spawn 2-4 thick stream points per frame at the rim
+  const count = pourFactor > 0.6 ? 4 : pourFactor > 0.3 ? 3 : 2;
+  for (let j = 0; j < count; j++) {
+    const spread = Math.min(pourFactor * 1.5, 1);
+    const lx = (Math.random() * 2 - 1) * CUP_TOP_HW * spread;
+    const ly = -HALF_H;
+    const wx = cx + lx * cosT - ly * sinT;
+    const wy = cy + lx * sinT + ly * cosT;
+
+    const stream = wx < cx ? streamL : streamR;
+    // Thick streams proportional to tilt × water amount
+    const w = Math.min(pourFactor * waterPct * 0.2 + 5, 35);
+    stream.push({
+      x: wx, y: wy,
+      vx: sinT * 0.8 + (Math.random() - 0.5) * 0.6,
+      vy: Math.max(0.5, -cosT * 0.8 + 0.5),
+      w, age: 0
+    });
+  }
+
+  if (!puddleX) puddleX = cx;
+  puddleX = puddleX * 0.9 + (cx + sinT * 50) * 0.1;
+}
+
+function updateStreams() {
+  const tableY = canvas.height * 0.48 + HALF_H + 12;
+
+  for (const s of [streamL, streamR]) {
+    for (const p of s) {
+      p.vy += 0.4;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vx *= 0.97;
+      p.w *= 0.992;
+      p.age++;
+    }
+    // Detach old points → drops
+    while (s.length > 0 && s[0].age > 25) {
+      const p = s.shift();
+      if (p.w > 1.5) {
+        drops.push({
+          x: p.x, y: p.y,
+          vx: p.vx + (Math.random() - 0.5) * 0.5,
+          vy: p.vy,
+          w: p.w * 1.1,
+          alpha: 0.8
+        });
+      }
+    }
+    while (s.length > 120) s.shift();
+  }
+}
+
+function updateDrops() {
+  const tableY = canvas.height * 0.48 + HALF_H + 12;
+
+  for (let i = drops.length - 1; i >= 0; i--) {
+    const d = drops[i];
+    d.vy += 0.45;
+    d.x += d.vx;
+    d.y += d.vy;
+    d.w *= 0.995;
+    d.alpha -= 0.005;
+
+    if (d.y >= tableY) {
+      puddleSize = Math.min(puddleSize + d.w * 0.5, 200);
+      if (!puddleX) puddleX = d.x;
+      puddleX = puddleX * 0.9 + d.x * 0.1;
+      drops.splice(i, 1);
+      continue;
+    }
+    if (d.alpha <= 0 || d.y > canvas.height + 20) {
+      drops.splice(i, 1);
+    }
+  }
+}
+
+// ===== Rendering =====
+function renderStream(points) {
+  if (points.length < 3) return;
+
+  const last = points.length - 1;
+
+  ctx.beginPath();
+  ctx.moveTo(points[last].x + points[last].w / 2, points[last].y);
+  for (let i = last - 1; i >= 0; i--) {
+    ctx.lineTo(points[i].x + points[i].w / 2, points[i].y);
+  }
+  for (let i = 0; i <= last; i++) {
+    ctx.lineTo(points[i].x - points[i].w / 2, points[i].y);
+  }
+  ctx.closePath();
+
+  const topY = points[last].y;
+  const botY = points[0].y;
+  if (botY - topY < 1) return;
+
+  const grad = ctx.createLinearGradient(0, topY, 0, botY);
+  grad.addColorStop(0, 'rgba(55,150,255,0.8)');
+  grad.addColorStop(0.3, 'rgba(40,130,250,0.6)');
+  grad.addColorStop(1, 'rgba(30,100,220,0.1)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Highlight
+  ctx.beginPath();
+  ctx.moveTo(points[last].x, points[last].y);
+  for (let i = last - 1; i >= 0; i--) ctx.lineTo(points[i].x, points[i].y);
+  ctx.strokeStyle = 'rgba(140,215,255,0.3)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+function renderDrops() {
+  for (const d of drops) {
+    const speed = Math.sqrt(d.vx * d.vx + d.vy * d.vy);
+    const angle = Math.atan2(d.vy, d.vx);
+    const rx = d.w / 2;
+    const ry = rx * (1 + Math.min(speed * 0.06, 1.2));
+
+    ctx.save();
+    ctx.translate(d.x, d.y);
+    ctx.rotate(angle);
+
+    ctx.beginPath();
+    ctx.ellipse(0, 0, ry, rx, 0, 0, Math.PI * 2);
+    const dg = ctx.createRadialGradient(0, 0, 0, 0, 0, ry);
+    dg.addColorStop(0, `rgba(80,175,255,${d.alpha.toFixed(2)})`);
+    dg.addColorStop(1, `rgba(35,110,230,${(d.alpha * 0.4).toFixed(2)})`);
+    ctx.fillStyle = dg;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.ellipse(-ry * 0.2, -rx * 0.25, ry * 0.25, rx * 0.25, 0, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(180,230,255,${(d.alpha * 0.3).toFixed(2)})`;
+    ctx.fill();
+
+    ctx.restore();
+  }
+}
+
+function render() {
+  const W = canvas.width, H = canvas.height;
+  const cx = W / 2, cy = H * 0.48;
+  const tableY = cy + HALF_H + 12;
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#0d1b2a');
+  bg.addColorStop(1, '#1b2838');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Table
+  ctx.fillStyle = '#1e2535';
+  ctx.fillRect(0, tableY, W, H - tableY);
+  ctx.strokeStyle = '#2a3548';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, tableY);
+  ctx.lineTo(W, tableY);
+  ctx.stroke();
+
+  // Puddle
+  if (puddleSize > 0.5) {
+    const pw = Math.min(puddleSize * 2.5, 350);
+    const ph = Math.min(puddleSize * 0.15 + 2, 10);
+    const px = puddleX || cx;
+    ctx.beginPath();
+    ctx.ellipse(px, tableY + 1, pw / 2, ph, 0, 0, Math.PI * 2);
+    const pg = ctx.createRadialGradient(px, tableY + 1, 0, px, tableY + 1, pw / 2);
+    pg.addColorStop(0, 'rgba(35,100,210,0.35)');
+    pg.addColorStop(1, 'rgba(25,70,170,0.03)');
+    ctx.fillStyle = pg;
+    ctx.fill();
+  }
+
+  // ---- Cup + Water (rotated frame) ----
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(tilt);
+
+  const baseH = getBaseH();
+
+  // Clip: cup walls extended upward
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(-CUP_TOP_HW, -HALF_H - 200);
+  ctx.lineTo(-CUP_TOP_HW, -HALF_H);
+  ctx.lineTo(-CUP_BOT_HW, HALF_H);
+  ctx.lineTo(CUP_BOT_HW, HALF_H);
+  ctx.lineTo(CUP_TOP_HW, -HALF_H);
+  ctx.lineTo(CUP_TOP_HW, -HALF_H - 200);
+  ctx.closePath();
+  ctx.clip();
+
+  if (baseH > 0 && waterPct > 0.1) {
+    const surfY = HALF_H - baseH;
+    const hw = cupHalfW(baseH);
+
+    ctx.beginPath();
+    ctx.moveTo(-CUP_BOT_HW, HALF_H);
+    ctx.lineTo(CUP_BOT_HW, HALF_H);
+    ctx.lineTo(hw, surfY);
+
+    for (let i = N - 1; i >= 0; i--) {
+      const t = i / (N - 1);
+      const x = -hw + t * 2 * hw;
+      const edgeDist = Math.min(i, N - 1 - i);
+      const meniscus = MENISCUS_H * Math.max(0, 1 - edgeDist / 3);
+      const y = surfY - cur[i] - meniscus;
+      ctx.lineTo(x, y);
+    }
+
+    ctx.lineTo(-hw, surfY);
+    ctx.lineTo(-CUP_BOT_HW, HALF_H);
+    ctx.closePath();
+
+    const wg = ctx.createLinearGradient(0, surfY - 30, 0, HALF_H);
+    wg.addColorStop(0, 'rgba(60,160,255,0.72)');
+    wg.addColorStop(0.4, 'rgba(35,110,230,0.82)');
+    wg.addColorStop(1, 'rgba(15,50,150,0.92)');
+    ctx.fillStyle = wg;
+    ctx.fill();
+
+    ctx.beginPath();
+    for (let i = 0; i < N; i++) {
+      const t = i / (N - 1);
+      const x = -hw + t * 2 * hw;
+      const edgeDist = Math.min(i, N - 1 - i);
+      const meniscus = MENISCUS_H * Math.max(0, 1 - edgeDist / 3);
+      const y = surfY - cur[i] - meniscus;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = 'rgba(140,215,255,0.5)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+  ctx.restore(); // clip
+
+  // Glass fill
+  ctx.beginPath();
+  ctx.moveTo(-CUP_TOP_HW, -HALF_H);
+  ctx.lineTo(-CUP_BOT_HW, HALF_H);
+  ctx.lineTo(CUP_BOT_HW, HALF_H);
+  ctx.lineTo(CUP_TOP_HW, -HALF_H);
+  ctx.closePath();
+  const gg = ctx.createLinearGradient(-CUP_TOP_HW, 0, CUP_TOP_HW, 0);
+  gg.addColorStop(0, 'rgba(180,210,255,0.07)');
+  gg.addColorStop(0.35, 'rgba(180,210,255,0.02)');
+  gg.addColorStop(0.65, 'rgba(180,210,255,0.02)');
+  gg.addColorStop(1, 'rgba(180,210,255,0.07)');
+  ctx.fillStyle = gg;
+  ctx.fill();
+
+  // Cup outline
+  ctx.beginPath();
+  ctx.moveTo(-CUP_TOP_HW, -HALF_H);
+  ctx.lineTo(-CUP_BOT_HW, HALF_H);
+  ctx.lineTo(CUP_BOT_HW, HALF_H);
+  ctx.lineTo(CUP_TOP_HW, -HALF_H);
+  ctx.strokeStyle = 'rgba(170,200,240,0.55)';
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+
+  // Glass highlight
+  ctx.beginPath();
+  ctx.moveTo(-CUP_TOP_HW + 7, -HALF_H + 10);
+  ctx.lineTo(-CUP_BOT_HW + 5, HALF_H - 10);
+  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  ctx.restore(); // rotation
+
+  // ---- Streams + drops (world coords) ----
+  renderStream(streamL);
+  renderStream(streamR);
+  renderDrops();
+
+  // UI
+  document.getElementById('label').textContent =
+    (waterPct > 0.5 ? Math.round(waterPct) : '0') + '%';
+}
+
+// ===== Main loop =====
+function update() {
+  if (keys['ArrowLeft'] || keys['a'] || keys['A']) tiltTarget = -MAX_TILT;
+  else if (keys['ArrowRight'] || keys['d'] || keys['D']) tiltTarget = MAX_TILT;
+  else if (accelActive) tiltTarget = accelTilt;
+  else tiltTarget = 0;
+
+  tilt += (tiltTarget - tilt) * 0.08;
+
+  updateWave();
+  handleOverflow();
+  handlePour();
+  updateStreams();
+  updateDrops();
+  puddleSize *= 0.9995;
+}
+
+function loop() {
+  update();
+  render();
+  requestAnimationFrame(loop);
+}
+
+// Reset
+document.getElementById('resetBtn').addEventListener('click', () => {
+  waterPct = 100;
+  cur.fill(0); prev.fill(0);
+  tilt = 0; tiltTarget = 0;
+  streamL.length = 0; streamR.length = 0;
+  drops.length = 0;
+  puddleSize = 0;
+  puddleX = 0;
+});
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
