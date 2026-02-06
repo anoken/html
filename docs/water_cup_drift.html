@@ -149,7 +149,7 @@ if (window.DeviceOrientationEvent) {
   accelBtn.style.display = 'inline-block';
   function onOrient(e) {
     if (e.gamma != null) {
-      accelTilt = Math.max(-MAX_TILT, Math.min(MAX_TILT, e.gamma * Math.PI / 180 * 2 / 3));
+      accelTilt = Math.max(-MAX_TILT, Math.min(MAX_TILT, e.gamma * Math.PI / 180));
     }
   }
   accelBtn.addEventListener('click', () => {
