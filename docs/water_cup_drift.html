@@ -119,6 +119,7 @@ const GRAV = 2.5;
 const TENSION = 0.03;
 const SPILL_THRESH = 4;
 const MENISCUS_H = 3;
+const SLOSH = 150;
 
 // ===== State =====
 let waterPct = 100;
@@ -132,6 +133,8 @@ const streamR = [];
 const drops = [];
 let puddleSize = 0;
 let puddleX = 0;
+let prevTilt = 0;
+let prevTiltDelta = 0;
 
 // ===== Input =====
 const keys = {};
@@ -177,6 +180,8 @@ function updateWave() {
 
   const next = new Float32Array(N);
   const sinT = Math.sin(tilt);
+  const tiltDelta = tilt - prevTilt;
+  const tiltAccel = tiltDelta - prevTiltDelta;
 
   for (let i = 1; i < N - 1; i++) {
     const lap = cur[i + 1] + cur[i - 1] - 2 * cur[i];
@@ -185,7 +190,12 @@ function updateWave() {
       biharm = cur[i - 2] - 4 * cur[i - 1] + 6 * cur[i] - 4 * cur[i + 1] + cur[i + 2];
     }
     const xn = 2 * i / (N - 1) - 1;
-    next[i] = (2 * cur[i] - prev[i] + C2 * lap - TENSION * biharm + GRAV * sinT * xn) * DAMP;
+    // Accel mode: gravity offset handled in rendering, wave eq gets sloshing impulse only
+    // Keyboard mode: continuous gravity force as before
+    const gravForce = accelActive
+      ? SLOSH * tiltAccel * xn
+      : GRAV * sinT * xn;
+    next[i] = (2 * cur[i] - prev[i] + C2 * lap - TENSION * biharm + gravForce) * DAMP;
     next[i] = Math.max(-CUP_H * 0.6, Math.min(CUP_H * 0.6, next[i]));
   }
 
@@ -199,6 +209,8 @@ function updateWave() {
 
   prev = cur;
   cur = next;
+  prevTiltDelta = tiltDelta;
+  prevTilt = tilt;
 }
 
 // --- Overflow: wave-based rim spill ---
@@ -219,21 +231,23 @@ function handleOverflow() {
   let lSum = 0, lWx = 0, lCnt = 0;
   let rSum = 0, rWx = 0, rCnt = 0;
 
+  const sinTilt = accelActive ? Math.sin(tilt) : 0;
   for (let i = 0; i < N; i++) {
-    const surfH = baseH + cur[i];
+    const frac = i / (N - 1);
+    const lx = -hw + frac * 2 * hw;
+    const gravOffset = lx * sinTilt;
+    const surfH = baseH + cur[i] + gravOffset;
     const ovf = surfH - CUP_H;
 
     if (ovf > effThresh) {
       const actual = ovf - effThresh;
       spillSum += actual;
-      cur[i] = CUP_H - baseH + effThresh * 0.2;
+      cur[i] = CUP_H - baseH - gravOffset + effThresh * 0.2;
 
-      const t = i / (N - 1);
-      const lx = -hw + t * 2 * hw;
       if (lx <= 0) { lSum += actual; lWx += lx * actual; lCnt++; }
       else         { rSum += actual; rWx += lx * actual; rCnt++; }
     }
-    if (baseH + cur[i] < 0) cur[i] = -baseH;
+    if (baseH + cur[i] + gravOffset < 0) cur[i] = -baseH - gravOffset;
   }
 
   // Spawn multiple ribbon points for thick streams
@@ -496,12 +510,14 @@ function render() {
     ctx.lineTo(CUP_BOT_HW, HALF_H);
     ctx.lineTo(hw, surfY);
 
+    const sinTR = accelActive ? Math.sin(tilt) : 0;
     for (let i = N - 1; i >= 0; i--) {
       const t = i / (N - 1);
       const x = -hw + t * 2 * hw;
       const edgeDist = Math.min(i, N - 1 - i);
       const meniscus = MENISCUS_H * Math.max(0, 1 - edgeDist / 3);
-      const y = surfY - cur[i] - meniscus;
+      const gravOffset = x * sinTR;
+      const y = surfY - cur[i] - meniscus - gravOffset;
       ctx.lineTo(x, y);
     }
 
@@ -522,7 +538,8 @@ function render() {
       const x = -hw + t * 2 * hw;
       const edgeDist = Math.min(i, N - 1 - i);
       const meniscus = MENISCUS_H * Math.max(0, 1 - edgeDist / 3);
-      const y = surfY - cur[i] - meniscus;
+      const gravOffset = x * sinTR;
+      const y = surfY - cur[i] - meniscus - gravOffset;
       i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     }
     ctx.strokeStyle = 'rgba(140,215,255,0.5)';
@@ -586,7 +603,7 @@ function update() {
   else tiltTarget = 0;
 
   tilt += (tiltTarget - tilt) * 0.08;
-  visualTilt = accelActive ? 0 : tilt;
+  visualTilt = tilt;
 
   updateWave();
   handleOverflow();
