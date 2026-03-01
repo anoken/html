@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>花粉ビューワー</title>
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    width: 100vw; height: 100vh; overflow: hidden;
+    font-family: 'DotGothic16', monospace;
+    background: #08082a; color: #c0c8e0;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  canvas { position: fixed; inset: 0; z-index: 1; }
+
+  /* ===== ローディング ===== */
+  .overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: #08082a;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+    transition: opacity 0.8s ease, visibility 0.8s ease;
+  }
+  .overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+  .overlay-title { font-size: 18px; color: #8890b0; }
+  .overlay-sub { font-size: 12px; color: #505880; text-align: center; line-height: 1.6; }
+  .loading-dots { display: flex; gap: 10px; }
+  .loading-dots span {
+    width: 12px; height: 12px; border-radius: 50%; background: rgba(200,80,220,0.7);
+    animation: dotPulse 1.2s ease infinite;
+  }
+  .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes dotPulse {
+    0%,80%,100% { transform: scale(0.6); opacity: 0.4; }
+    40% { transform: scale(1.2); opacity: 1; }
+  }
+
+  /* ===== 住所入力 ===== */
+  .address-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: #08082a;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+    padding: 24px;
+    transition: opacity 0.8s ease, visibility 0.8s ease;
+  }
+  .address-overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+  .address-title { font-size: 18px; color: #8890b0; }
+  .address-hint { font-size: 12px; color: #505880; text-align: center; line-height: 1.8; }
+  .address-form {
+    display: flex; gap: 8px; width: min(90vw, 400px);
+  }
+  .address-input {
+    flex: 1; font-family: 'DotGothic16', monospace; font-size: 16px;
+    padding: 12px 16px; background: rgba(30,30,80,0.8);
+    border: 1px solid rgba(100,110,180,0.4); border-radius: 10px;
+    color: #c0c8e0; outline: none;
+  }
+  .address-input::placeholder { color: #404880; }
+  .address-input:focus { border-color: rgba(180,80,200,0.6); }
+  .address-btn {
+    font-family: 'DotGothic16', monospace; font-size: 14px;
+    padding: 12px 20px; background: rgba(180,80,200,0.3);
+    border: 1px solid rgba(180,80,200,0.4); border-radius: 10px;
+    color: #c080d0; cursor: pointer; white-space: nowrap;
+  }
+  .address-btn:active { background: rgba(180,80,200,0.5); }
+  .address-error { font-size: 13px; color: #e06080; min-height: 1.5em; }
+
+  /* ===== メイン表示 ===== */
+  .info-panel {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+    text-align: center; padding: 32px 16px 0;
+    opacity: 0; transition: opacity 0.6s ease;
+    pointer-events: none;
+  }
+  .info-panel.show { opacity: 1; }
+
+  .location-name {
+    font-size: 13px; color: #6068a0; letter-spacing: 0.1em; margin-bottom: 12px;
+  }
+  .info-line {
+    font-size: 16px; color: #8890b0; letter-spacing: 0.05em;
+  }
+  .info-line .count {
+    color: #d0d8f0; font-size: 24px;
+  }
+  .info-line .unit {
+    font-size: 13px; color: #6870a0;
+  }
+  .level-text {
+    font-size: 56px; color: #b0b8d8; margin-top: 10px;
+    letter-spacing: 0.12em;
+    text-shadow: 0 0 20px rgba(160,170,220,0.3);
+  }
+  .time-label {
+    font-size: 11px; color: #404870; margin-top: 8px;
+  }
+
+  /* 場所変更ボタン */
+  .change-btn {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+    z-index: 10; pointer-events: auto;
+    font-family: 'DotGothic16', monospace; font-size: 12px;
+    padding: 8px 20px; background: rgba(10,10,50,0.85);
+    border: 1px solid rgba(100,110,160,0.25); border-radius: 10px;
+    color: #6068a0; cursor: pointer;
+    opacity: 0; transition: opacity 0.6s ease;
+  }
+  .change-btn.show { opacity: 1; }
+  .change-btn:active { background: rgba(30,30,80,0.9); }
+
+  @media (max-width: 600px) {
+    .info-line { font-size: 14px; }
+    .info-line .count { font-size: 20px; }
+    .level-text { font-size: 42px; }
+    .info-panel { padding-top: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ローディング -->
+<div class="overlay" id="loadingOverlay">
+  <div class="loading-dots"><span></span><span></span><span></span></div>
+  <div class="overlay-title" id="loadingText">位置情報を取得中...</div>
+  <div class="overlay-sub" id="loadingSub">GPSをオンにしてください</div>
+</div>
+
+<!-- 住所入力 -->
+<div class="address-overlay hidden" id="addressOverlay">
+  <div class="address-title">住所を入力してください</div>
+  <div class="address-hint">
+    位置情報を取得できませんでした<br>
+    市区町村名で検索できます
+  </div>
+  <div class="address-form">
+    <input class="address-input" id="addressInput" type="text"
+           placeholder="例: 東京都港区" enterkeyhint="search" autocomplete="off">
+    <button class="address-btn" id="addressBtn">検索</button>
+  </div>
+  <div class="address-error" id="addressError"></div>
+  <div class="address-hint">例: 渋谷区、大阪市中央区、横浜市西区</div>
+</div>
+
+<!-- メイン表示 -->
+<div class="info-panel" id="infoPanel">
+  <div class="location-name" id="locationName">--</div>
+  <div class="info-line">
+    <span id="hourLabel">--</span>時の花粉飛散数：<span class="count" id="pollenCount">--</span><span class="unit"> 個/cm²</span>
+  </div>
+  <div class="level-text" id="levelText">--</div>
+  <div class="time-label" id="timeLabel">--</div>
+</div>
+
+<canvas id="canvas"></canvas>
+
+<button class="change-btn" id="changeBtn">場所を変更</button>
+
+<script>
+// ===== 設定 =====
+const API_BASE = 'https://wxtech.weathernews.com/opendata/v1/pollen';
+const GSI_REV = 'https://mreversegeocoder.gsi.go.jp/reverse-geocoder/LonLatToAddress';
+const GSI_SEARCH = 'https://msearch.gsi.go.jp/address-search/AddressSearch';
+
+const PREF = {
+  '01':'北海道','02':'青森県','03':'岩手県','04':'宮城県','05':'秋田県',
+  '06':'山形県','07':'福島県','08':'茨城県','09':'栃木県','10':'群馬県',
+  '11':'埼玉県','12':'千葉県','13':'東京都','14':'神奈川県','15':'新潟県',
+  '16':'富山県','17':'石川県','18':'福井県','19':'山梨県','20':'長野県',
+  '21':'岐阜県','22':'静岡県','23':'愛知県','24':'三重県','25':'滋賀県',
+  '26':'京都府','27':'大阪府','28':'兵庫県','29':'奈良県','30':'和歌山県',
+  '31':'鳥取県','32':'島根県','33':'岡山県','34':'広島県','35':'山口県',
+  '36':'徳島県','37':'香川県','38':'愛媛県','39':'高知県','40':'福岡県',
+  '41':'佐賀県','42':'長崎県','43':'熊本県','44':'大分県','45':'宮崎県',
+  '46':'鹿児島県','47':'沖縄県'
+};
+
+const CFG = {
+  maxBalls: 600, scaleFactor: 8, minIfPositive: 5,
+  colors: [
+    [220,60,240],[200,40,230],[240,80,255],[180,50,220],
+    [255,100,240],[190,30,210],[230,70,250],[210,50,235],
+  ]
+};
+
+// ===== Canvas =====
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let W, H;
+function resize() { W = canvas.width = innerWidth; H = canvas.height = innerHeight; }
+resize();
+addEventListener('resize', resize);
+
+// ===== Ball =====
+class Ball {
+  constructor(appear) { this.reset(appear); }
+  reset(randomY) {
+    this.x = Math.random() * W;
+    this.y = randomY ? Math.random() * H : -10 - Math.random() * 80;
+    this.r = 2 + Math.random() * 5;
+    const c = CFG.colors[Math.random() * CFG.colors.length | 0];
+    this.cr = c[0]; this.cg = c[1]; this.cb = c[2];
+    this.a = 0.4 + Math.random() * 0.5;
+    this.vx = (Math.random() - 0.5) * 0.5;
+    this.vy = 0.06 + Math.random() * 0.3;
+    this.wAX = 0.3 + Math.random() * 1.2;
+    this.wAY = 0.08 + Math.random() * 0.25;
+    this.wFX = 0.004 + Math.random() * 0.012;
+    this.wFY = 0.003 + Math.random() * 0.008;
+    this.pX = Math.random() * 6.28;
+    this.pY = Math.random() * 6.28;
+    this.t = Math.random() * 10000;
+    this.gs = 2.5 + Math.random() * 2;
+  }
+  update() {
+    this.t++;
+    this.x += this.vx + Math.sin(this.t * this.wFX + this.pX) * this.wAX
+            + Math.sin(this.t * this.wFX * 2.3 + this.pX * 0.7) * this.wAX * 0.3;
+    this.y += this.vy + Math.cos(this.t * this.wFY + this.pY) * this.wAY;
+    if (this.y > H + 40 || this.x < -40 || this.x > W + 40) this.reset(false);
+  }
+  draw(c) {
+    const a = this.a;
+    const g = c.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.r * this.gs);
+    g.addColorStop(0, `rgba(${this.cr},${this.cg},${this.cb},${a*0.5})`);
+    g.addColorStop(0.4, `rgba(${this.cr},${this.cg},${this.cb},${a*0.12})`);
+    g.addColorStop(1, `rgba(${this.cr},${this.cg},${this.cb},0)`);
+    c.beginPath(); c.arc(this.x, this.y, this.r * this.gs, 0, 6.28); c.fillStyle = g; c.fill();
+    c.beginPath(); c.arc(this.x, this.y, this.r, 0, 6.28);
+    c.fillStyle = `rgba(${this.cr},${this.cg},${this.cb},${a})`; c.fill();
+    c.beginPath(); c.arc(this.x - this.r * 0.2, this.y - this.r * 0.2, this.r * 0.3, 0, 6.28);
+    c.fillStyle = `rgba(255,220,255,${a*0.4})`; c.fill();
+  }
+}
+
+let balls = [];
+let animating = false;
+
+function setBalls(n) {
+  const count = n > 0 ? Math.min(CFG.maxBalls, Math.max(CFG.minIfPositive, Math.round(n * CFG.scaleFactor))) : 0;
+  while (balls.length < count) balls.push(new Ball(true));
+  if (count < balls.length) balls.length = count;
+}
+
+function animate() {
+  ctx.clearRect(0, 0, W, H);
+  for (const b of balls) { b.update(); b.draw(ctx); }
+  requestAnimationFrame(animate);
+}
+
+// ===== レベル判定 =====
+function getLevel(n) {
+  if (n <= 0) return 'なし';
+  if (n <= 5) return '少ない';
+  if (n <= 15) return 'やや多い';
+  if (n <= 50) return '多い';
+  return '非常に多い';
+}
+
+// ===== 位置情報取得 =====
+function getGPS() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) return reject(new Error('Geolocation not supported'));
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      err => reject(err),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+    );
+  });
+}
+
+// ===== GSI リバースジオコーダー → 市区町村コード =====
+async function getCityCode(lat, lng) {
+  const res = await fetch(`${GSI_REV}?lat=${lat}&lon=${lng}`, { signal: AbortSignal.timeout(6000) });
+  const data = await res.json();
+  if (!data.results || !data.results.muniCd) throw new Error('No muniCd');
+  return data.results.muniCd;
+}
+
+// ===== 表示名取得（Nominatim） =====
+async function getDisplayName(lat, lng) {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=ja&zoom=10`,
+      { signal: AbortSignal.timeout(5000) }
+    );
+    const data = await res.json();
+    const a = data.address || {};
+    return a.city || a.town || a.village || a.county || null;
+  } catch { return null; }
+}
+
+// ===== 住所検索（GSI） =====
+async function searchAddress(query) {
+  const res = await fetch(`${GSI_SEARCH}?q=${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(6000) });
+  const data = await res.json();
+  if (!data.length) throw new Error('見つかりませんでした');
+  const coords = data[0].geometry.coordinates; // [lng, lat]
+  return { lat: coords[1], lng: coords[0], name: data[0].properties.title };
+}
+
+// ===== CSV パース =====
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const out = [];
+  for (let i = 1; i < lines.length; i++) {
+    const p = lines[i].split(',');
+    if (p.length < 3) continue;
+    const val = parseInt(p[2], 10);
+    if (val === -9999 || isNaN(val)) continue;
+    const dt = new Date(p[1]);
+    out.push({ date: dt, pollen: Math.max(0, val) });
+  }
+  return out;
+}
+
+// ===== 花粉データ取得（現在のみ） =====
+async function fetchCurrentPollen(cityCode) {
+  const now = new Date();
+  const fmt = d => d.toISOString().slice(0, 10).replace(/-/g, '');
+  const end = fmt(now);
+  const s = new Date(now); s.setDate(s.getDate() - 1);
+  const start = fmt(s);
+  const url = `${API_BASE}?citycode=${cityCode}&start=${start}&end=${end}`;
+  console.log('Fetch pollen:', url);
+
+  const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const text = await res.text();
+  const data = parseCSV(text);
+  if (!data.length) throw new Error('No pollen data');
+
+  // 現在時刻に最も近いエントリを取得
+  const nowMs = now.getTime();
+  let closest = data[data.length - 1];
+  let minDiff = Infinity;
+  for (const entry of data) {
+    const diff = Math.abs(entry.date.getTime() - nowMs);
+    if (diff < minDiff) { minDiff = diff; closest = entry; }
+  }
+  return closest;
+}
+
+// ===== デモデータ =====
+function makeDemoData() {
+  const now = new Date();
+  const h = now.getHours();
+  let p = 0;
+  if (h >= 8 && h <= 18) p = Math.round(Math.sin((h - 8) / 10 * Math.PI) * 25 + Math.random() * 10);
+  else p = Math.round(Math.random() * 3);
+  return { date: now, pollen: Math.max(0, p) };
+}
+
+// ===== UI更新 =====
+function showResult(locationName, pollenData) {
+  const d = pollenData;
+  const h = d.date.getHours();
+  const dateStr = d.date.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' });
+
+  document.getElementById('locationName').textContent = locationName;
+  document.getElementById('hourLabel').textContent = h;
+  document.getElementById('pollenCount').textContent = d.pollen;
+  document.getElementById('levelText').textContent = getLevel(d.pollen);
+  document.getElementById('timeLabel').textContent = `${dateStr} ${h}時 時点`;
+
+  setBalls(d.pollen);
+
+  document.getElementById('loadingOverlay').classList.add('hidden');
+  document.getElementById('addressOverlay').classList.add('hidden');
+  document.getElementById('infoPanel').classList.add('show');
+  document.getElementById('changeBtn').classList.add('show');
+
+  if (!animating) { animating = true; animate(); }
+}
+
+function showLoading(text, sub) {
+  const el = document.getElementById('loadingOverlay');
+  el.classList.remove('hidden');
+  document.getElementById('loadingText').textContent = text;
+  document.getElementById('loadingSub').textContent = sub || '';
+}
+
+function showAddressInput() {
+  document.getElementById('loadingOverlay').classList.add('hidden');
+  document.getElementById('addressOverlay').classList.remove('hidden');
+  document.getElementById('addressInput').focus();
+}
+
+// ===== 座標から花粉データ読み込み =====
+async function loadFromCoords(lat, lng, overrideName) {
+  showLoading('花粉データを取得中...', '市区町村コードを解決しています');
+
+  let cityCode, displayName;
+  try {
+    const [code, name] = await Promise.all([
+      getCityCode(lat, lng),
+      overrideName ? Promise.resolve(overrideName) : getDisplayName(lat, lng),
+    ]);
+    cityCode = code;
+    displayName = name || PREF[code.slice(0, 2)] || '不明';
+  } catch (e) {
+    console.warn('City code lookup failed:', e);
+    showAddressInput();
+    document.getElementById('addressError').textContent = '位置の特定に失敗しました。住所を入力してください。';
+    return;
+  }
+
+  showLoading('花粉データを取得中...', `${displayName}（${cityCode}）`);
+
+  let pollenData;
+  try {
+    pollenData = await fetchCurrentPollen(cityCode);
+  } catch (e) {
+    console.warn('Pollen API failed, using demo:', e.message);
+    pollenData = makeDemoData();
+    displayName += '（デモ）';
+  }
+
+  showResult(displayName, pollenData);
+}
+
+// ===== 住所検索ハンドラ =====
+async function handleAddressSearch() {
+  const input = document.getElementById('addressInput');
+  const query = input.value.trim();
+  if (!query) return;
+
+  const errEl = document.getElementById('addressError');
+  errEl.textContent = '';
+  document.getElementById('addressBtn').textContent = '検索中...';
+
+  try {
+    const result = await searchAddress(query);
+    await loadFromCoords(result.lat, result.lng, result.name);
+  } catch (e) {
+    errEl.textContent = e.message || '検索に失敗しました';
+    document.getElementById('addressBtn').textContent = '検索';
+  }
+}
+
+// ===== イベント =====
+document.getElementById('addressBtn').addEventListener('click', handleAddressSearch);
+document.getElementById('addressInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') handleAddressSearch();
+});
+document.getElementById('changeBtn').addEventListener('click', () => {
+  document.getElementById('infoPanel').classList.remove('show');
+  document.getElementById('changeBtn').classList.remove('show');
+  balls.length = 0;
+  showAddressInput();
+  document.getElementById('addressBtn').textContent = '検索';
+  document.getElementById('addressError').textContent = '';
+});
+
+// ===== 初期化 =====
+async function init() {
+  showLoading('位置情報を取得中...', 'GPSをオンにしてください');
+
+  try {
+    const pos = await getGPS();
+    console.log('GPS:', pos.lat, pos.lng);
+    await loadFromCoords(pos.lat, pos.lng);
+  } catch (e) {
+    console.warn('Geolocation failed:', e.message);
+    showAddressInput();
+  }
+}
+
+init();
+</script>
+</body>
+</html>
