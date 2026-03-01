@@ -113,11 +113,60 @@
   .change-btn.show { opacity: 1; }
   .change-btn:active { background: rgba(30,30,80,0.9); }
 
+  /* ===== タイムスライダー ===== */
+  .time-slider-panel {
+    position: fixed; bottom: 56px; left: 50%; transform: translateX(-50%);
+    z-index: 10; pointer-events: auto;
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 16px;
+    background: rgba(10,10,50,0.85);
+    border: 1px solid rgba(100,110,160,0.25); border-radius: 12px;
+    opacity: 0; transition: opacity 0.6s ease;
+    width: min(92vw, 420px);
+  }
+  .time-slider-panel.show { opacity: 1; }
+  .time-nav-btn {
+    font-family: 'DotGothic16', monospace; font-size: 18px;
+    width: 32px; height: 32px;
+    background: rgba(180,80,200,0.15);
+    border: 1px solid rgba(180,80,200,0.3); border-radius: 8px;
+    color: #8070b0; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .time-nav-btn:active { background: rgba(180,80,200,0.35); }
+  .time-slider-wrap {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .time-slider-label {
+    font-size: 11px; color: #6068a0; white-space: nowrap;
+  }
+  .time-slider {
+    width: 100%; height: 4px;
+    -webkit-appearance: none; appearance: none;
+    background: rgba(100,110,180,0.3); border-radius: 2px;
+    outline: none; cursor: pointer;
+  }
+  .time-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: rgba(200,80,220,0.8);
+    border: 2px solid rgba(255,200,255,0.4);
+    box-shadow: 0 0 8px rgba(200,80,220,0.4);
+  }
+  .time-slider::-moz-range-thumb {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: rgba(200,80,220,0.8);
+    border: 2px solid rgba(255,200,255,0.4);
+    box-shadow: 0 0 8px rgba(200,80,220,0.4);
+  }
+
   @media (max-width: 600px) {
     .info-line { font-size: 14px; }
     .info-line .count { font-size: 20px; }
     .level-text { font-size: 42px; }
     .info-panel { padding-top: 24px; }
+    .time-slider-panel { width: min(94vw, 360px); padding: 8px 12px; }
   }
 </style>
 </head>
@@ -157,6 +206,16 @@
 </div>
 
 <canvas id="canvas"></canvas>
+
+<!-- タイムスライダー -->
+<div class="time-slider-panel" id="timeSliderPanel">
+  <button class="time-nav-btn" id="timePrev">◀</button>
+  <div class="time-slider-wrap">
+    <div class="time-slider-label" id="timeSliderLabel">現在</div>
+    <input type="range" class="time-slider" id="timeSlider" min="0" max="0" value="0">
+  </div>
+  <button class="time-nav-btn" id="timeNext">▶</button>
+</div>
 
 <button class="change-btn" id="changeBtn">場所を変更</button>
 
@@ -318,12 +377,12 @@ function parseCSV(text) {
   return out;
 }
 
-// ===== 花粉データ取得（現在のみ） =====
-async function fetchCurrentPollen(cityCode) {
+// ===== 花粉データ取得（過去24時間） =====
+async function fetchPollenHistory(cityCode) {
   const now = new Date();
   const fmt = d => d.toISOString().slice(0, 10).replace(/-/g, '');
   const end = fmt(now);
-  const s = new Date(now); s.setDate(s.getDate() - 1);
+  const s = new Date(now); s.setDate(s.getDate() - 2);
   const start = fmt(s);
   const url = `${API_BASE}?citycode=${cityCode}&start=${start}&end=${end}`;
   console.log('Fetch pollen:', url);
@@ -334,15 +393,15 @@ async function fetchCurrentPollen(cityCode) {
   const data = parseCSV(text);
   if (!data.length) throw new Error('No pollen data');
 
-  // 現在時刻に最も近いエントリを取得
+  // 過去24時間以内＋未来すぎないエントリのみ残す
   const nowMs = now.getTime();
-  let closest = data[data.length - 1];
-  let minDiff = Infinity;
-  for (const entry of data) {
-    const diff = Math.abs(entry.date.getTime() - nowMs);
-    if (diff < minDiff) { minDiff = diff; closest = entry; }
-  }
-  return closest;
+  const cutoff = nowMs - 24 * 60 * 60 * 1000;
+  const filtered = data.filter(e => e.date.getTime() >= cutoff && e.date.getTime() <= nowMs + 60 * 60 * 1000);
+  if (!filtered.length) throw new Error('No pollen data in last 24h');
+
+  // 時刻順にソート
+  filtered.sort((a, b) => a.date.getTime() - b.date.getTime());
+  return filtered;
 }
 
 // ===== デモデータ =====
@@ -355,24 +414,53 @@ function makeDemoData() {
   return { date: now, pollen: Math.max(0, p) };
 }
 
-// ===== UI更新 =====
-function showResult(locationName, pollenData) {
-  const d = pollenData;
-  const h = d.date.getHours();
-  const dateStr = d.date.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' });
+// ===== グローバル状態（タイムスライダー用） =====
+let pollenHistory = [];
+let currentLocationName = '';
 
-  document.getElementById('locationName').textContent = locationName;
+// ===== UI更新 =====
+function updateDisplay(entry) {
+  const h = entry.date.getHours();
+  const dateStr = entry.date.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' });
+
+  document.getElementById('locationName').textContent = currentLocationName;
   document.getElementById('hourLabel').textContent = h;
-  document.getElementById('pollenCount').textContent = d.pollen;
-  document.getElementById('levelText').textContent = getLevel(d.pollen);
+  document.getElementById('pollenCount').textContent = entry.pollen;
+  document.getElementById('levelText').textContent = getLevel(entry.pollen);
   document.getElementById('timeLabel').textContent = `${dateStr} ${h}時 時点`;
 
-  setBalls(d.pollen);
+  setBalls(entry.pollen);
+}
+
+function formatSliderLabel(entry, isLatest) {
+  if (isLatest) return '現在';
+  const h = entry.date.getHours();
+  const dateStr = entry.date.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
+  return `${dateStr} ${h}時`;
+}
+
+function setupSlider(data) {
+  const slider = document.getElementById('timeSlider');
+  const label = document.getElementById('timeSliderLabel');
+  const maxIdx = data.length - 1;
+  slider.min = 0;
+  slider.max = maxIdx;
+  slider.value = maxIdx;
+  label.textContent = '現在';
+}
+
+function showResult(locationName, data) {
+  currentLocationName = locationName;
+  pollenHistory = data;
+
+  setupSlider(data);
+  updateDisplay(data[data.length - 1]);
 
   document.getElementById('loadingOverlay').classList.add('hidden');
   document.getElementById('addressOverlay').classList.add('hidden');
   document.getElementById('infoPanel').classList.add('show');
   document.getElementById('changeBtn').classList.add('show');
+  document.getElementById('timeSliderPanel').classList.add('show');
 
   if (!animating) { animating = true; animate(); }
 }
@@ -411,16 +499,16 @@ async function loadFromCoords(lat, lng, overrideName) {
 
   showLoading('花粉データを取得中...', `${displayName}（${cityCode}）`);
 
-  let pollenData;
+  let data;
   try {
-    pollenData = await fetchCurrentPollen(cityCode);
+    data = await fetchPollenHistory(cityCode);
   } catch (e) {
     console.warn('Pollen API failed, using demo:', e.message);
-    pollenData = makeDemoData();
+    data = [makeDemoData()];
     displayName += '（デモ）';
   }
 
-  showResult(displayName, pollenData);
+  showResult(displayName, data);
 }
 
 // ===== 住所検索ハンドラ =====
@@ -450,10 +538,36 @@ document.getElementById('addressInput').addEventListener('keydown', e => {
 document.getElementById('changeBtn').addEventListener('click', () => {
   document.getElementById('infoPanel').classList.remove('show');
   document.getElementById('changeBtn').classList.remove('show');
+  document.getElementById('timeSliderPanel').classList.remove('show');
   balls.length = 0;
+  pollenHistory = [];
   showAddressInput();
   document.getElementById('addressBtn').textContent = '検索';
   document.getElementById('addressError').textContent = '';
+});
+
+// タイムスライダー
+document.getElementById('timeSlider').addEventListener('input', e => {
+  const idx = parseInt(e.target.value, 10);
+  if (!pollenHistory.length) return;
+  const entry = pollenHistory[idx];
+  const isLatest = idx === pollenHistory.length - 1;
+  document.getElementById('timeSliderLabel').textContent = formatSliderLabel(entry, isLatest);
+  updateDisplay(entry);
+});
+document.getElementById('timePrev').addEventListener('click', () => {
+  const slider = document.getElementById('timeSlider');
+  if (parseInt(slider.value) > parseInt(slider.min)) {
+    slider.value = parseInt(slider.value) - 1;
+    slider.dispatchEvent(new Event('input'));
+  }
+});
+document.getElementById('timeNext').addEventListener('click', () => {
+  const slider = document.getElementById('timeSlider');
+  if (parseInt(slider.value) < parseInt(slider.max)) {
+    slider.value = parseInt(slider.value) + 1;
+    slider.dispatchEvent(new Event('input'));
+  }
 });
 
 // ===== 初期化 =====
