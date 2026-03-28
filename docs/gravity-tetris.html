@@ -2,27 +2,84 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>重心テトリス</title>
 <style>
 *{box-sizing:border-box}
-body{margin:0;background:#fff;display:flex;flex-direction:column;align-items:center;height:100vh;height:100dvh;overflow:hidden;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
-canvas{display:block;flex:1 1 auto;min-height:0}
-#ctrl{display:none;width:100%;max-width:480px;padding:6px 10px 12px;gap:6px;flex:0 0 auto}
-#ctrl .row{display:flex;justify-content:center;gap:6px}
-#ctrl button{
-  font-size:22px;width:60px;height:52px;border:none;border-radius:10px;
-  background:#e0e0e0;color:#333;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;
-  -webkit-tap-highlight-color:transparent;
+html,body{
+  margin:0;
+  padding:0;
+  width:100%;
+  height:100%;
+  background:#fff;
+  overflow:hidden;
 }
+body{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-start;
+  min-height:100dvh;
+  touch-action:none;
+  -webkit-touch-callout:none;
+  -webkit-user-select:none;
+  user-select:none;
+  overscroll-behavior:none;
+  padding-top:env(safe-area-inset-top);
+  padding-bottom:env(safe-area-inset-bottom);
+}
+
+canvas{
+  display:block;
+  flex:0 0 auto;
+  aspect-ratio:1 / 1;
+  max-width:100%;
+  max-height:100%;
+}
+
+#ctrl{
+  display:none;
+  width:100%;
+  max-width:480px;
+  padding:6px 10px 12px;
+  gap:6px;
+  flex:0 0 auto;
+  min-height:122px;
+  justify-content:center;
+  align-items:center;
+  flex-direction:column;
+}
+
+#ctrl .row{
+  display:flex;
+  justify-content:center;
+  gap:6px;
+}
+
+#ctrl button{
+  font-size:22px;
+  width:60px;
+  height:52px;
+  border:none;
+  border-radius:10px;
+  background:#e0e0e0;
+  color:#333;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+}
+
 #ctrl button:active{background:#bbb}
 #ctrl button.wide{width:130px;font-size:16px;letter-spacing:1px}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
+
 <div id="ctrl">
   <div class="row">
     <button id="bl">&#9664;</button>
@@ -34,37 +91,69 @@ canvas{display:block;flex:1 1 auto;min-height:0}
     <button id="bhard" class="wide">DROP</button>
   </div>
 </div>
+
 <script>
 'use strict';
 
 /* モバイル判定 */
-const isMobile='ontouchstart'in window||navigator.maxTouchPoints>0;
-const ctrlEl=document.getElementById('ctrl');
-if(isMobile)ctrlEl.style.display='flex';
+const isMobile = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+const ctrlEl = document.getElementById('ctrl');
+if (isMobile) ctrlEl.style.display = 'flex';
 
-/* レスポンシブキャンバス */
-const cvs=document.getElementById('c');
-const ctx=cvs.getContext('2d');
-let W,H;
+/* キャンバス */
+const cvs = document.getElementById('c');
+const ctx = cvs.getContext('2d');
+
+let W = 0, H = 0;
+
+/* 安定版リサイズ */
 function resize(){
-  const dpr=window.devicePixelRatio||1;
-  const ctrlH=isMobile?ctrlEl.offsetHeight:0;
-  const avail=window.innerHeight-ctrlH;
-  W=Math.min(window.innerWidth,avail);
-  H=W;
-  cvs.width=W*dpr;cvs.height=H*dpr;
-  cvs.style.width=W+'px';cvs.style.height=H+'px';
-  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+
+  const vv = window.visualViewport;
+  const vw = vv ? vv.width : window.innerWidth;
+  const vh = vv ? vv.height : window.innerHeight;
+
+  const ctrlH = isMobile ? ctrlEl.offsetHeight : 0;
+
+  const safeTop = parseFloat(getComputedStyle(document.body).paddingTop) || 0;
+  const safeBottom = parseFloat(getComputedStyle(document.body).paddingBottom) || 0;
+
+  const availableW = Math.floor(vw);
+  const availableH = Math.floor(vh - ctrlH - safeTop - safeBottom);
+
+  const size = Math.max(100, Math.floor(Math.min(availableW, availableH)));
+
+  W = size;
+  H = size;
+
+  /* CSSサイズ */
+  cvs.style.width = W + 'px';
+  cvs.style.height = H + 'px';
+
+  /* 内部解像度 */
+  cvs.width = Math.round(W * dpr);
+  cvs.height = Math.round(H * dpr);
+
+  /* 座標系リセット */
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.scale(dpr, dpr);
 }
+
 resize();
-window.addEventListener('resize',resize);
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => setTimeout(resize, 200));
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', resize);
+  window.visualViewport.addEventListener('scroll', resize);
+}
 
 /* 色 (モノクロ) */
-const ACOL='#cccccc'; // アクティブ
-const PCOL='#666666'; // 配置済
+const ACOL = '#cccccc'; // アクティブ
+const PCOL = '#666666'; // 配置済
 
 /* テトリミノ (回転中心=0,0) */
-const S=[
+const S = [
   [[-1,0],[0,0],[1,0],[0,-1]],  // T
   [[0,0],[1,0],[0,1],[1,1]],    // O
   [[0,0],[1,0],[-1,1],[0,1]],   // S
@@ -73,12 +162,15 @@ const S=[
   [[-1,0],[0,0],[1,0],[1,-1]],  // L
   [[-1,-1],[-1,0],[0,0],[1,0]], // J
 ];
-const rotCW=b=>b.map(([x,y])=>[-y,x]);
+const rotCW = b => b.map(([x,y]) => [-y,x]);
 
 /* 7-bag */
 function bag(){
-  const a=[0,1,2,3,4,5,6];
-  for(let i=6;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];}
+  const a = [0,1,2,3,4,5,6];
+  for(let i=6;i>0;i--){
+    const j = Math.random()*(i+1)|0;
+    [a[i],a[j]] = [a[j],a[i]];
+  }
   return a;
 }
 
@@ -86,310 +178,377 @@ let G;
 
 class Game{
   constructor(){
-    this.F=new Map();       // "x,y"→color
-    this.B=[];              // bag
-    this.ni=this._pull();   // next index
-    this.ci=0;
-    this.p=null;            // piece
+    this.F = new Map();       // "x,y"→color
+    this.B = [];              // bag
+    this.ni = this._pull();   // next index
+    this.ci = 0;
+    this.p = null;            // piece
 
     /* 回転アニメーション */
-    this.anim=false;
-    this.at=0;              // timer
-    this.ad=0.35;           // duration
-    this.aa=0;              // target angle
-    this.rn=0;              // rotation steps
+    this.anim = false;
+    this.at = 0;              // timer
+    this.ad = 0.35;           // duration
+    this.aa = 0;              // target angle
+    this.rn = 0;              // rotation steps
 
     /* 落下アニメーション */
-    this.falling=[];        // [{blocks:[{x,y}], vy, dy, alpha}]
-    this.fallAnim=false;
+    this.falling = [];        // [{blocks:[{x,y}], vy, dy, alpha}]
+    this.fallAnim = false;
+    this._pendingSpawn = false;
 
     /* 表示 */
-    this.sc=30; this.ts=30;
+    this.sc = 30;
+    this.ts = 30;
 
     /* ゲーム */
-    this.dt_=0;
-    this.di=600;            // drop interval ms
-    this.sd=false;          // soft drop
-    this.ov=false;          // game over
-    this.n=0;               // piece count
+    this.dt_ = 0;
+    this.di = 600;            // drop interval ms
+    this.sd = false;          // soft drop
+    this.ov = false;          // game over
+    this.n = 0;               // piece count
 
     this._spawn();
   }
 
-  _pull(){if(!this.B.length)this.B=bag();return this.B.pop();}
-
-  /* ピース出現 — 常にフィールド最上部の上から */
-  _spawn(){
-    const i=this.ni;
-    this.ni=this._pull();
-    const b=S[i].map(v=>[...v]);
-    let my=Infinity;
-    for(const k of this.F.keys())my=Math.min(my,+k.split(',')[1]);
-    if(!isFinite(my))my=1;
-    this.p={i,b,x:0,y:my-4};
-    this.dt_=0;
-    if(!this._ok(0,0))this.ov=true;
+  _pull(){
+    if(!this.B.length) this.B = bag();
+    return this.B.pop();
   }
 
-  /* 配置チェック */
+  /* ピース出現 */
+  _spawn(){
+    const i = this.ni;
+    this.ni = this._pull();
+    const b = S[i].map(v => [...v]);
+
+    let my = Infinity;
+    for(const k of this.F.keys()) my = Math.min(my, +k.split(',')[1]);
+    if(!isFinite(my)) my = 1;
+
+    this.p = {i,b,x:0,y:my-4};
+    this.dt_ = 0;
+
+    if(!this._ok(0,0)) this.ov = true;
+  }
+
   _ok(dx,dy,bl){
-    if(!this.p)return false;
-    const b=bl||this.p.b,px=this.p.x+dx,py=this.p.y+dy;
-    let floor=2;
-    for(const k of this.F.keys())floor=Math.max(floor,+k.split(',')[1]+1);
-    for(const[bx,by]of b){
-      if(this.F.has(`${px+bx},${py+by}`))return false;
-      if(py+by>=floor)return false;
+    if(!this.p) return false;
+    const b = bl || this.p.b;
+    const px = this.p.x + dx;
+    const py = this.p.y + dy;
+
+    let floor = 2;
+    for(const k of this.F.keys()) floor = Math.max(floor, +k.split(',')[1] + 1);
+
+    for(const [bx,by] of b){
+      if(this.F.has(`${px+bx},${py+by}`)) return false;
+      if(py + by >= floor) return false;
     }
     return true;
   }
 
   _move(dx,dy){
-    if(this.anim||this.fallAnim||this.ov||!this.p)return false;
-    if(this._ok(dx,dy)){this.p.x+=dx;this.p.y+=dy;return true;}
+    if(this.anim || this.fallAnim || this.ov || !this.p) return false;
+    if(this._ok(dx,dy)){
+      this.p.x += dx;
+      this.p.y += dy;
+      return true;
+    }
     return false;
   }
 
   _rotate(){
-    if(this.anim||this.fallAnim||this.ov||!this.p||this.p.i===1)return;
-    const nb=rotCW(this.p.b);
-    for(const[kx,ky]of[[0,0],[1,0],[-1,0],[0,-1],[1,-1],[-1,-1]]){
-      if(this._ok(kx,ky,nb)){this.p.x+=kx;this.p.y+=ky;this.p.b=nb;return;}
+    if(this.anim || this.fallAnim || this.ov || !this.p || this.p.i === 1) return;
+    const nb = rotCW(this.p.b);
+    for(const [kx,ky] of [[0,0],[1,0],[-1,0],[0,-1],[1,-1],[-1,-1]]){
+      if(this._ok(kx,ky,nb)){
+        this.p.x += kx;
+        this.p.y += ky;
+        this.p.b = nb;
+        return;
+      }
     }
   }
 
   _ghostY(){
-    if(!this.p)return null;
-    let d=0;
-    while(d<60&&this._ok(0,d+1))d++;
-    return d>=59?null:this.p.y+d;
+    if(!this.p) return null;
+    let d = 0;
+    while(d < 60 && this._ok(0,d+1)) d++;
+    return d >= 59 ? null : this.p.y + d;
   }
 
   _hard(){
-    if(this.anim||this.fallAnim||this.ov||!this.p)return;
-    const g=this._ghostY();if(g==null)return;
-    this.p.y=g;this._lock();
+    if(this.anim || this.fallAnim || this.ov || !this.p) return;
+    const g = this._ghostY();
+    if(g == null) return;
+    this.p.y = g;
+    this._lock();
   }
 
-  /* 横or縦に8個以上つながった行/列を消去 */
   _clearLines(){
-    let cleared=false;
-    const rows=new Map();
+    let cleared = false;
+
+    const rows = new Map();
     for(const k of this.F.keys()){
-      const y=+k.split(',')[1];
-      rows.set(y,(rows.get(y)||0)+1);
+      const y = +k.split(',')[1];
+      rows.set(y, (rows.get(y)||0) + 1);
     }
-    for(const[y,cnt]of rows){
-      if(cnt>=8){
-        for(const k of[...this.F.keys()])if(+k.split(',')[1]===y)this.F.delete(k);
-        cleared=true;
+    for(const [y,cnt] of rows){
+      if(cnt >= 8){
+        for(const k of [...this.F.keys()]){
+          if(+k.split(',')[1] === y) this.F.delete(k);
+        }
+        cleared = true;
       }
     }
-    const cols=new Map();
+
+    const cols = new Map();
     for(const k of this.F.keys()){
-      const x=+k.split(',')[0];
-      cols.set(x,(cols.get(x)||0)+1);
+      const x = +k.split(',')[0];
+      cols.set(x, (cols.get(x)||0) + 1);
     }
-    for(const[x,cnt]of cols){
-      if(cnt>=8){
-        for(const k of[...this.F.keys()])if(+k.split(',')[0]===x)this.F.delete(k);
-        cleared=true;
+    for(const [x,cnt] of cols){
+      if(cnt >= 8){
+        for(const k of [...this.F.keys()]){
+          if(+k.split(',')[0] === x) this.F.delete(k);
+        }
+        cleared = true;
       }
     }
-    if(cleared)this._removeIsolated();
+
+    if(cleared) this._removeIsolated();
   }
 
-  /* 中央（支点）とつながっていない成分を落下アニメーションへ */
   _removeIsolated(){
-    if(this.F.size===0)return;
-    const visited=new Set();
-    const comps=[];
+    if(this.F.size === 0) return;
+
+    const visited = new Set();
+    const comps = [];
+
     for(const k of this.F.keys()){
-      if(visited.has(k))continue;
-      const comp=[];
-      const q=[k];
+      if(visited.has(k)) continue;
+
+      const comp = [];
+      const q = [k];
       visited.add(k);
+
       while(q.length){
-        const c=q.shift();
+        const c = q.shift();
         comp.push(c);
-        const[x,y]=c.split(',').map(Number);
-        for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]){
-          const nk=`${x+dx},${y+dy}`;
-          if(this.F.has(nk)&&!visited.has(nk)){visited.add(nk);q.push(nk);}
+        const [x,y] = c.split(',').map(Number);
+
+        for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+          const nk = `${x+dx},${y+dy}`;
+          if(this.F.has(nk) && !visited.has(nk)){
+            visited.add(nk);
+            q.push(nk);
+          }
         }
       }
       comps.push(comp);
     }
-    /* 中央(0,0)に最も近いブロックを含む成分を残す */
-    let best=comps[0],bestDist=Infinity;
-    for(const c of comps){
-      let minD=Infinity;
-      for(const k of c){
-        const[x,y]=k.split(',').map(Number);
-        const d=x*x+y*y;
-        if(d<minD)minD=d;
-      }
-      if(minD<bestDist){bestDist=minD;best=c;}
-    }
-    const keep=new Set(best);
 
-    /* 離れたブロックを落下アニメーションリストに追加 */
-    const isolated=[];
-    for(const k of[...this.F.keys()]){
+    let best = comps[0], bestDist = Infinity;
+    for(const c of comps){
+      let minD = Infinity;
+      for(const k of c){
+        const [x,y] = k.split(',').map(Number);
+        const d = x*x + y*y;
+        if(d < minD) minD = d;
+      }
+      if(minD < bestDist){
+        bestDist = minD;
+        best = c;
+      }
+    }
+
+    const keep = new Set(best);
+
+    const isolated = [];
+    for(const k of [...this.F.keys()]){
       if(!keep.has(k)){
-        const[x,y]=k.split(',').map(Number);
+        const [x,y] = k.split(',').map(Number);
         isolated.push({x,y});
         this.F.delete(k);
       }
     }
-    if(isolated.length>0){
-      this.falling.push({blocks:isolated,vy:0,dy:0,alpha:1});
-      this.fallAnim=true;
+
+    if(isolated.length > 0){
+      this.falling.push({blocks:isolated, vy:0, dy:0, alpha:1});
+      this.fallAnim = true;
     }
   }
 
-  /* ピース確定→ライン消去→重心回転判定 */
   _lock(){
-    const p=this.p;
-    for(const[bx,by]of p.b)this.F.set(`${p.x+bx},${p.y+by}`,1);
+    const p = this.p;
+    for(const [bx,by] of p.b) this.F.set(`${p.x+bx},${p.y+by}`,1);
     this.n++;
-    this.p=null;
+    this.p = null;
 
     this._clearLines();
 
-    let cx=0,cy=0,n=0;
+    let cx = 0, cy = 0, n = 0;
     for(const k of this.F.keys()){
-      const[x,y]=k.split(',').map(Number);
-      cx+=x;cy+=y;n++;
+      const [x,y] = k.split(',').map(Number);
+      cx += x;
+      cy += y;
+      n++;
     }
-    cx/=n;cy/=n;
-    const ang=Math.atan2(cx,cy);
-    this.rn=Math.round(ang/(Math.PI/2));
 
-    if(this.rn===0){
-      if(!this.fallAnim)this._spawn();
-      else this._pendingSpawn=true;
+    if(n === 0){
+      if(!this.fallAnim) this._spawn();
+      else this._pendingSpawn = true;
+      return;
+    }
+
+    cx /= n;
+    cy /= n;
+
+    const ang = Math.atan2(cx,cy);
+    this.rn = Math.round(ang/(Math.PI/2));
+
+    if(this.rn === 0){
+      if(!this.fallAnim) this._spawn();
+      else this._pendingSpawn = true;
     }else{
-      this.anim=true;
-      this.at=0;
-      this.aa=this.rn*Math.PI/2;
+      this.anim = true;
+      this.at = 0;
+      this.aa = this.rn * Math.PI/2;
     }
   }
 
-  /* フィールド座標を実際に回転 */
   _transformF(){
-    let s=((this.rn%4)+4)%4;
-    if(!s)return;
-    const nf=new Map();
-    for(const[k,c]of this.F){
-      let[x,y]=k.split(',').map(Number);
-      for(let i=0;i<s;i++){const t=x;x=-y;y=t;}
+    let s = ((this.rn%4)+4)%4;
+    if(!s) return;
+
+    const nf = new Map();
+    for(const [k,c] of this.F){
+      let [x,y] = k.split(',').map(Number);
+      for(let i=0;i<s;i++){
+        const t = x;
+        x = -y;
+        y = t;
+      }
       nf.set(`${x},${y}`,c);
     }
-    this.F=nf;
+    this.F = nf;
   }
 
-  /* 更新 */
   update(dt){
-    if(this.ov)return;
+    if(this.ov) return;
 
-    /* 落下アニメーション更新 */
-    if(this.falling.length>0){
-      const gravity=40; // グリッド単位/s²
+    if(this.falling.length > 0){
+      const gravity = 40;
       for(const f of this.falling){
-        f.vy+=gravity*dt;
-        f.dy+=f.vy*dt;
-        f.alpha=Math.max(0,1-f.dy/20);
+        f.vy += gravity * dt;
+        f.dy += f.vy * dt;
+        f.alpha = Math.max(0, 1 - f.dy / 20);
       }
-      this.falling=this.falling.filter(f=>f.alpha>0);
-      if(this.falling.length===0){
-        this.fallAnim=false;
+      this.falling = this.falling.filter(f => f.alpha > 0);
+
+      if(this.falling.length === 0){
+        this.fallAnim = false;
         if(this._pendingSpawn){
-          this._pendingSpawn=false;
+          this._pendingSpawn = false;
           this._spawn();
         }
       }
     }
 
-    /* 回転アニメーション中 */
     if(this.anim){
-      this.at+=dt;
-      if(this.at>=this.ad){
+      this.at += dt;
+      if(this.at >= this.ad){
         this._transformF();
-        this.anim=false;
-        if(!this.fallAnim)this._spawn();
-        else this._pendingSpawn=true;
+        this.anim = false;
+        if(!this.fallAnim) this._spawn();
+        else this._pendingSpawn = true;
       }
       return;
     }
-    if(!this.p)return;
 
-    /* 重力 */
-    const iv=this.sd?40:this.di;
-    this.dt_+=dt*1000;
-    while(this.dt_>=iv){
-      this.dt_-=iv;
-      if(!this._move(0,1)){this._lock();return;}
+    if(!this.p) return;
+
+    const iv = this.sd ? 40 : this.di;
+    this.dt_ += dt * 1000;
+
+    while(this.dt_ >= iv){
+      this.dt_ -= iv;
+      if(!this._move(0,1)){
+        this._lock();
+        return;
+      }
     }
   }
 
-  /* ズーム計算 */
   _zoom(){
     let x0=-1,x1=1,y0=-1,y1=1;
-    const add=(x,y)=>{x0=Math.min(x0,x);x1=Math.max(x1,x+1);y0=Math.min(y0,y);y1=Math.max(y1,y+1);};
-    for(const k of this.F.keys()){const[x,y]=k.split(',').map(Number);add(x,y);}
-    if(this.p)for(const[bx,by]of this.p.b)add(this.p.x+bx,this.p.y+by);
-    const w=x1-x0,h=y1-y0;
-    const d=this.anim?Math.sqrt(w*w+h*h):Math.max(w,h);
-    this.ts=Math.min(32,Math.max(5,Math.min(W*.55,H*.45)/(d+3)));
-    this.sc+=(this.ts-this.sc)*.07;
+    const add=(x,y)=>{
+      x0=Math.min(x0,x);
+      x1=Math.max(x1,x+1);
+      y0=Math.min(y0,y);
+      y1=Math.max(y1,y+1);
+    };
+
+    for(const k of this.F.keys()){
+      const [x,y] = k.split(',').map(Number);
+      add(x,y);
+    }
+
+    if(this.p){
+      for(const [bx,by] of this.p.b){
+        add(this.p.x+bx,this.p.y+by);
+      }
+    }
+
+    const w = x1-x0, h = y1-y0;
+    const d = this.anim ? Math.sqrt(w*w+h*h) : Math.max(w,h);
+
+    /* ←ここを縦横対称に修正 */
+    this.ts = Math.min(32, Math.max(5, Math.min(W,H)*0.5/(d+3)));
+    this.sc += (this.ts - this.sc) * .07;
   }
 
-  /* 描画 */
   draw(){
     this._zoom();
-    const s=this.sc;
-    ctx.fillStyle='#ffffff';
+    const s = this.sc;
+
+    ctx.fillStyle = '#ffffff';
     ctx.fillRect(0,0,W,H);
 
     ctx.save();
     ctx.translate(W/2,H/2);
 
-    /* 回転アニメーション (ease in-out) */
     if(this.anim){
-      const t=Math.min(this.at/this.ad,1);
-      const e=t<.5?2*t*t:1-(-2*t+2)**2/2;
+      const t = Math.min(this.at/this.ad,1);
+      const e = t<.5 ? 2*t*t : 1-(-2*t+2)**2/2;
       ctx.rotate(this.aa*e);
     }
 
-    /* 配置済みブロック */
     for(const k of this.F.keys()){
-      const[gx,gy]=k.split(',').map(Number);
+      const [gx,gy] = k.split(',').map(Number);
       blk(gx,gy,s,PCOL);
     }
 
-    /* 落下中ブロック */
     for(const f of this.falling){
-      ctx.globalAlpha=f.alpha;
+      ctx.globalAlpha = f.alpha;
       for(const b of f.blocks){
         blk(b.x,b.y+f.dy,s,PCOL);
       }
-      ctx.globalAlpha=1;
+      ctx.globalAlpha = 1;
     }
 
-    /* 支点 */
     ctx.beginPath();
     ctx.arc(0,0,Math.max(2,s*.13),0,Math.PI*2);
     ctx.fillStyle='#999';
     ctx.fill();
 
-    /* ゴースト＋アクティブピース */
-    if(this.p&&!this.anim){
-      const gy=this._ghostY();
-      if(gy!=null){
-        for(const[bx,by]of this.p.b)ghost(this.p.x+bx,gy+by,s);
+    if(this.p && !this.anim){
+      const gy = this._ghostY();
+      if(gy != null){
+        for(const [bx,by] of this.p.b) ghost(this.p.x+bx,gy+by,s);
       }
-      for(const[bx,by]of this.p.b)blk(this.p.x+bx,this.p.y+by,s,ACOL);
+      for(const [bx,by] of this.p.b) blk(this.p.x+bx,this.p.y+by,s,ACOL);
+
       ctx.beginPath();
       ctx.arc(this.p.x*s,this.p.y*s,Math.max(1.5,s*.1),0,Math.PI*2);
       ctx.fillStyle='rgba(0,0,0,.25)';
@@ -398,10 +557,8 @@ class Game{
 
     ctx.restore();
 
-    /* NEXT */
     drawNext(this);
 
-    /* GAME OVER */
     if(this.ov){
       ctx.fillStyle='rgba(255,255,255,.8)';
       ctx.fillRect(0,0,W,H);
@@ -409,16 +566,17 @@ class Game{
       ctx.fillStyle='#000';
       ctx.font='bold 26px monospace';
       ctx.fillText('GAME OVER',W/2,H/2-8);
-      ctx.font='12px monospace';ctx.fillStyle='#666';
-      const msg=isMobile?this.n+' pieces  |  Tap to restart':this.n+' pieces  |  R to restart';
+      ctx.font='12px monospace';
+      ctx.fillStyle='#666';
+      const msg=isMobile ? this.n+' pieces  |  Tap to restart' : this.n+' pieces  |  R to restart';
       ctx.fillText(msg,W/2,H/2+18);
     }
 
-    /* 操作説明 */
     if(!this.ov){
       ctx.fillStyle='rgba(0,0,0,.2)';
-      ctx.font='10px monospace';ctx.textAlign='center';
-      const help=isMobile?'':'\u2190\u2192 Move  \u2191 Rotate  \u2193 Drop  Space Hard';
+      ctx.font='10px monospace';
+      ctx.textAlign='center';
+      const help=isMobile ? '' : '←→ Move  ↑ Rotate  ↓ Drop  Space Hard';
       ctx.fillText(help,W/2,H-8);
     }
   }
@@ -431,7 +589,7 @@ function blk(gx,gy,s,col){
   ctx.fillRect((gx-.5)*s+g,(gy-.5)*s+g,s-g*2,s-g*2);
 }
 
-/* ゴーストブロック */
+/* ゴースト */
 function ghost(gx,gy,s){
   const g=Math.max(1,s*.06);
   ctx.strokeStyle='rgba(0,0,0,.2)';
@@ -439,7 +597,7 @@ function ghost(gx,gy,s){
   ctx.strokeRect((gx-.5)*s+g,(gy-.5)*s+g,s-g*2,s-g*2);
 }
 
-/* NEXTピース */
+/* NEXT */
 function drawNext(g){
   const sh=S[g.ni];
   const col=ACOL;
@@ -447,50 +605,71 @@ function drawNext(g){
   let sx=0,sy=0;
   for(const[bx,by]of sh){sx+=bx;sy+=by;}
   sx/=sh.length;sy/=sh.length;
+
   ctx.fillStyle='rgba(0,0,0,.3)';
-  ctx.font='9px monospace';ctx.textAlign='center';
+  ctx.font='9px monospace';
+  ctx.textAlign='center';
   ctx.fillText('NEXT',ox,12);
+
   for(const[bx,by]of sh){
     ctx.fillStyle=col;
     ctx.fillRect(ox+(bx-sx)*ns-ns/2+1,oy+(by-sy)*ns-ns/2+1,ns-2,ns-2);
   }
 }
 
-/* キーボード入力 */
-G=new Game();
+/* ゲーム開始 */
+G = new Game();
+
+/* キーボード */
 document.addEventListener('keydown',e=>{
   if(e.key==='r'||e.key==='R'){G=new Game();return;}
   if(G.ov||G.anim||G.fallAnim)return;
-  switch(e.key){
-    case'ArrowLeft':G._move(-1,0);break;
-    case'ArrowRight':G._move(1,0);break;
-    case'ArrowDown':G.sd=true;break;
-    case'ArrowUp':case'z':case'Z':G._rotate();break;
-    case' ':G._hard();break;
-  }
-  if(['ArrowLeft','ArrowRight','ArrowDown','ArrowUp',' '].includes(e.key))e.preventDefault();
-});
-document.addEventListener('keyup',e=>{if(e.key==='ArrowDown')G.sd=false;});
 
-/* ボタン操作（スマホ用） */
+  switch(e.key){
+    case 'ArrowLeft': G._move(-1,0); break;
+    case 'ArrowRight': G._move(1,0); break;
+    case 'ArrowDown': G.sd=true; break;
+    case 'ArrowUp':
+    case 'z':
+    case 'Z': G._rotate(); break;
+    case ' ': G._hard(); break;
+  }
+
+  if(['ArrowLeft','ArrowRight','ArrowDown','ArrowUp',' '].includes(e.key)){
+    e.preventDefault();
+  }
+});
+
+document.addEventListener('keyup',e=>{
+  if(e.key==='ArrowDown') G.sd=false;
+});
+
+/* ボタン操作（スマホ） */
 (function(){
-  /* 長押しリピート付きボタンハンドラ */
   function repeat(id,action){
     const btn=document.getElementById(id);
     let tid=0,iid=0;
+
     function start(e){
       e.preventDefault();
       if(G.ov){G=new Game();return;}
       action();
-      clearTimeout(tid);clearInterval(iid);
+      clearTimeout(tid);
+      clearInterval(iid);
       tid=setTimeout(()=>{iid=setInterval(action,80);},200);
     }
-    function stop(e){e.preventDefault();clearTimeout(tid);clearInterval(iid);}
+
+    function stop(e){
+      e.preventDefault();
+      clearTimeout(tid);
+      clearInterval(iid);
+    }
+
     btn.addEventListener('touchstart',start,{passive:false});
     btn.addEventListener('touchend',stop,{passive:false});
     btn.addEventListener('touchcancel',stop,{passive:false});
   }
-  /* 単発ボタンハンドラ */
+
   function once(id,action){
     const btn=document.getElementById(id);
     btn.addEventListener('touchstart',e=>{
@@ -507,20 +686,29 @@ document.addEventListener('keyup',e=>{if(e.key==='ArrowDown')G.sd=false;});
   once('brot',()=>G._rotate());
   once('bhard',()=>G._hard());
 
-  /* キャンバスタップでリスタート (GAME OVER時) */
   cvs.addEventListener('touchstart',e=>{
     e.preventDefault();
-    if(G.ov)G=new Game();
+    if(G.ov) G=new Game();
   },{passive:false});
 })();
 
+/* ダブルタップ拡大防止 */
+let lastTouchEnd = 0;
+document.addEventListener('touchend', function (e) {
+  const now = Date.now();
+  if (now - lastTouchEnd <= 300) e.preventDefault();
+  lastTouchEnd = now;
+}, { passive: false });
+
 /* ループ */
-let lt=performance.now();
-!function lp(t){
-  const dt=Math.min((t-lt)/1000,.08);lt=t;
-  G.update(dt);G.draw();
+let lt = performance.now();
+(function lp(t){
+  const dt = Math.min((t-lt)/1000,.08);
+  lt = t;
+  G.update(dt);
+  G.draw();
   requestAnimationFrame(lp);
-}(lt);
+})(lt);
 </script>
 </body>
 </html>
