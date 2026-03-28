@@ -6,14 +6,41 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>重心テトリス</title>
 <style>
-body{margin:0;background:#fff;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
-canvas{display:block}
+*{box-sizing:border-box}
+body{margin:0;background:#fff;display:flex;flex-direction:column;align-items:center;height:100vh;height:100dvh;overflow:hidden;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+canvas{display:block;flex:1 1 auto;min-height:0}
+#ctrl{display:none;width:100%;max-width:480px;padding:6px 10px 12px;gap:6px;flex:0 0 auto}
+#ctrl .row{display:flex;justify-content:center;gap:6px}
+#ctrl button{
+  font-size:22px;width:60px;height:52px;border:none;border-radius:10px;
+  background:#e0e0e0;color:#333;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  -webkit-tap-highlight-color:transparent;
+}
+#ctrl button:active{background:#bbb}
+#ctrl button.wide{width:130px;font-size:16px;letter-spacing:1px}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
+<div id="ctrl">
+  <div class="row">
+    <button id="bl">&#9664;</button>
+    <button id="brot">&#8635;</button>
+    <button id="bd">&#9660;</button>
+    <button id="br">&#9654;</button>
+  </div>
+  <div class="row">
+    <button id="bhard" class="wide">DROP</button>
+  </div>
+</div>
 <script>
 'use strict';
+
+/* モバイル判定 */
+const isMobile='ontouchstart'in window||navigator.maxTouchPoints>0;
+const ctrlEl=document.getElementById('ctrl');
+if(isMobile)ctrlEl.style.display='flex';
 
 /* レスポンシブキャンバス */
 const cvs=document.getElementById('c');
@@ -21,7 +48,9 @@ const ctx=cvs.getContext('2d');
 let W,H;
 function resize(){
   const dpr=window.devicePixelRatio||1;
-  W=Math.min(window.innerWidth,window.innerHeight);
+  const ctrlH=isMobile?ctrlEl.offsetHeight:0;
+  const avail=window.innerHeight-ctrlH;
+  W=Math.min(window.innerWidth,avail);
   H=W;
   cvs.width=W*dpr;cvs.height=H*dpr;
   cvs.style.width=W+'px';cvs.style.height=H+'px';
@@ -389,8 +418,7 @@ class Game{
     if(!this.ov){
       ctx.fillStyle='rgba(0,0,0,.2)';
       ctx.font='10px monospace';ctx.textAlign='center';
-      const help=isMobile?'Swipe:Move/Drop  Tap:Rotate  2-Tap:HardDrop'
-        :'\u2190\u2192 Move  \u2191 Rotate  \u2193 Drop  Space Hard';
+      const help=isMobile?'':'\u2190\u2192 Move  \u2191 Rotate  \u2193 Drop  Space Hard';
       ctx.fillText(help,W/2,H-8);
     }
   }
@@ -428,9 +456,6 @@ function drawNext(g){
   }
 }
 
-/* モバイル判定 */
-const isMobile='ontouchstart'in window||navigator.maxTouchPoints>0;
-
 /* キーボード入力 */
 G=new Game();
 document.addEventListener('keydown',e=>{
@@ -447,62 +472,45 @@ document.addEventListener('keydown',e=>{
 });
 document.addEventListener('keyup',e=>{if(e.key==='ArrowDown')G.sd=false;});
 
-/* タッチ操作 */
+/* ボタン操作（スマホ用） */
 (function(){
-  let tx0=0,ty0=0,t0=0,moved=false,lastTap=0;
-  const SWIPE_TH=20; // スワイプ判定距離
+  /* 長押しリピート付きボタンハンドラ */
+  function repeat(id,action){
+    const btn=document.getElementById(id);
+    let tid=0,iid=0;
+    function start(e){
+      e.preventDefault();
+      if(G.ov){G=new Game();return;}
+      action();
+      clearTimeout(tid);clearInterval(iid);
+      tid=setTimeout(()=>{iid=setInterval(action,80);},200);
+    }
+    function stop(e){e.preventDefault();clearTimeout(tid);clearInterval(iid);}
+    btn.addEventListener('touchstart',start,{passive:false});
+    btn.addEventListener('touchend',stop,{passive:false});
+    btn.addEventListener('touchcancel',stop,{passive:false});
+  }
+  /* 単発ボタンハンドラ */
+  function once(id,action){
+    const btn=document.getElementById(id);
+    btn.addEventListener('touchstart',e=>{
+      e.preventDefault();
+      if(G.ov){G=new Game();return;}
+      action();
+    },{passive:false});
+    btn.addEventListener('touchend',e=>e.preventDefault(),{passive:false});
+  }
 
+  repeat('bl',()=>G._move(-1,0));
+  repeat('br',()=>G._move(1,0));
+  repeat('bd',()=>G._move(0,1));
+  once('brot',()=>G._rotate());
+  once('bhard',()=>G._hard());
+
+  /* キャンバスタップでリスタート (GAME OVER時) */
   cvs.addEventListener('touchstart',e=>{
     e.preventDefault();
-    const t=e.changedTouches[0];
-    tx0=t.clientX;ty0=t.clientY;
-    t0=performance.now();
-    moved=false;
-  },{passive:false});
-
-  cvs.addEventListener('touchmove',e=>{
-    e.preventDefault();
-    if(G.ov||G.anim||G.fallAnim)return;
-    const t=e.changedTouches[0];
-    const dx=t.clientX-tx0,dy=t.clientY-ty0;
-
-    /* 横スワイプ（繰り返し移動） */
-    if(Math.abs(dx)>=SWIPE_TH){
-      G._move(dx>0?1:-1,0);
-      tx0=t.clientX;ty0=t.clientY;
-      moved=true;
-    }
-    /* 下スワイプ（ソフトドロップ） */
-    if(dy>=SWIPE_TH){
-      G._move(0,1);
-      tx0=t.clientX;ty0=t.clientY;
-      moved=true;
-    }
-  },{passive:false});
-
-  cvs.addEventListener('touchend',e=>{
-    e.preventDefault();
-    const now=performance.now();
-
-    /* GAME OVER時はタップでリスタート */
-    if(G.ov){G=new Game();return;}
-
-    if(!moved){
-      /* ダブルタップ → ハードドロップ */
-      if(now-lastTap<300){
-        G._hard();
-        lastTap=0;
-      }else{
-        /* シングルタップ → 回転 */
-        lastTap=now;
-        setTimeout(()=>{
-          if(lastTap===now){
-            G._rotate();
-          }
-        },300);
-      }
-    }
-    G.sd=false;
+    if(G.ov)G=new Game();
   },{passive:false});
 })();
 
