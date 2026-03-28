@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>重心テトリス</title>
+<style>
+body{margin:0;background:#fff;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden}
+canvas{display:block}
+</style>
+</head>
+<body>
+<canvas id="c" width="512" height="512"></canvas>
+<script>
+'use strict';
+const W=512,H=512;
+const cvs=document.getElementById('c');
+const ctx=cvs.getContext('2d');
+
+/* 色 (モノクロ) */
+const ACOL='#cccccc'; // アクティブ
+const PCOL='#666666'; // 配置済
+
+/* テトリミノ (回転中心=0,0) */
+const S=[
+  [[-1,0],[0,0],[1,0],[0,-1]],  // T
+  [[0,0],[1,0],[0,1],[1,1]],    // O
+  [[0,0],[1,0],[-1,1],[0,1]],   // S
+  [[-1,0],[0,0],[0,1],[1,1]],   // Z
+  [[-1,0],[0,0],[1,0],[2,0]],   // I
+  [[-1,0],[0,0],[1,0],[1,-1]],  // L
+  [[-1,-1],[-1,0],[0,0],[1,0]], // J
+];
+const rotCW=b=>b.map(([x,y])=>[-y,x]);
+
+/* 7-bag */
+function bag(){
+  const a=[0,1,2,3,4,5,6];
+  for(let i=6;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+
+let G;
+
+class Game{
+  constructor(){
+    this.F=new Map();       // "x,y"→color
+    this.B=[];              // bag
+    this.ni=this._pull();   // next index
+    this.ci=0;              // (未使用・互換用)
+    this.p=null;            // piece
+
+    /* 回転アニメーション */
+    this.anim=false;
+    this.at=0;              // timer
+    this.ad=0.35;           // duration
+    this.aa=0;              // target angle
+    this.rn=0;              // rotation steps
+
+    /* 表示 */
+    this.sc=30; this.ts=30;
+
+    /* ゲーム */
+    this.dt_=0;
+    this.di=600;            // drop interval ms
+    this.sd=false;          // soft drop
+    this.ov=false;          // game over
+    this.n=0;               // piece count
+
+    this._spawn();
+  }
+
+  _pull(){if(!this.B.length)this.B=bag();return this.B.pop();}
+
+  /* ピース出現 — 常にフィールド最上部の上から */
+  _spawn(){
+    const i=this.ni;
+    this.ni=this._pull();
+    const b=S[i].map(v=>[...v]);
+    let my=Infinity;
+    for(const k of this.F.keys())my=Math.min(my,+k.split(',')[1]);
+    if(!isFinite(my))my=1;
+    this.p={i,b,x:0,y:my-4};
+    this.dt_=0;
+    if(!this._ok(0,0))this.ov=true;
+  }
+
+  /* 配置チェック */
+  _ok(dx,dy,bl){
+    if(!this.p)return false;
+    const b=bl||this.p.b,px=this.p.x+dx,py=this.p.y+dy;
+    /* 床 = 配置済み最下段+1 (常に存在) */
+    let floor=2;
+    for(const k of this.F.keys())floor=Math.max(floor,+k.split(',')[1]+1);
+    for(const[bx,by]of b){
+      if(this.F.has(`${px+bx},${py+by}`))return false;
+      if(py+by>=floor)return false;
+    }
+    return true;
+  }
+
+  _move(dx,dy){
+    if(this.anim||this.ov||!this.p)return false;
+    if(this._ok(dx,dy)){this.p.x+=dx;this.p.y+=dy;return true;}
+    return false;
+  }
+
+  _rotate(){
+    if(this.anim||this.ov||!this.p||this.p.i===1)return;
+    const nb=rotCW(this.p.b);
+    for(const[kx,ky]of[[0,0],[1,0],[-1,0],[0,-1],[1,-1],[-1,-1]]){
+      if(this._ok(kx,ky,nb)){this.p.x+=kx;this.p.y+=ky;this.p.b=nb;return;}
+    }
+  }
+
+  _ghostY(){
+    if(!this.p)return null;
+    let d=0;
+    while(d<60&&this._ok(0,d+1))d++;
+    return d>=59?null:this.p.y+d;
+  }
+
+  _hard(){
+    if(this.anim||this.ov||!this.p)return;
+    const g=this._ghostY();if(g==null)return;
+    this.p.y=g;this._lock();
+  }
+
+  /* 横or縦に8個以上つながった行/列を消去 */
+  _clearLines(){
+    let cleared=false;
+    /* 横(行) */
+    const rows=new Map();
+    for(const k of this.F.keys()){
+      const y=+k.split(',')[1];
+      rows.set(y,(rows.get(y)||0)+1);
+    }
+    for(const[y,cnt]of rows){
+      if(cnt>=8){
+        for(const k of[...this.F.keys()])if(+k.split(',')[1]===y)this.F.delete(k);
+        cleared=true;
+      }
+    }
+    /* 縦(列) */
+    const cols=new Map();
+    for(const k of this.F.keys()){
+      const x=+k.split(',')[0];
+      cols.set(x,(cols.get(x)||0)+1);
+    }
+    for(const[x,cnt]of cols){
+      if(cnt>=8){
+        for(const k of[...this.F.keys()])if(+k.split(',')[0]===x)this.F.delete(k);
+        cleared=true;
+      }
+    }
+    if(cleared)this._removeIsolated();
+  }
+
+  /* 最大連結成分以外を除去 */
+  _removeIsolated(){
+    if(this.F.size===0)return;
+    const visited=new Set();
+    const comps=[];
+    for(const k of this.F.keys()){
+      if(visited.has(k))continue;
+      const comp=[];
+      const q=[k];
+      visited.add(k);
+      while(q.length){
+        const c=q.shift();
+        comp.push(c);
+        const[x,y]=c.split(',').map(Number);
+        for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]){
+          const nk=`${x+dx},${y+dy}`;
+          if(this.F.has(nk)&&!visited.has(nk)){visited.add(nk);q.push(nk);}
+        }
+      }
+      comps.push(comp);
+    }
+    /* 最大の塊を残す */
+    let best=comps[0];
+    for(const c of comps)if(c.length>best.length)best=c;
+    const keep=new Set(best);
+    for(const k of[...this.F.keys()])if(!keep.has(k))this.F.delete(k);
+  }
+
+  /* ピース確定→ライン消去→重心回転判定 */
+  _lock(){
+    const p=this.p;
+    for(const[bx,by]of p.b)this.F.set(`${p.x+bx},${p.y+by}`,1);
+    this.n++;
+    this.p=null;
+
+    /* ライン消去 */
+    this._clearLines();
+
+    /* 重心算出 → 離散回転ステップ */
+    let cx=0,cy=0,n=0;
+    for(const k of this.F.keys()){
+      const[x,y]=k.split(',').map(Number);
+      cx+=x;cy+=y;n++;
+    }
+    cx/=n;cy/=n;
+    const ang=Math.atan2(cx,cy);
+    this.rn=Math.round(ang/(Math.PI/2));
+
+    if(this.rn===0){
+      this._spawn();
+    }else{
+      this.anim=true;
+      this.at=0;
+      this.aa=this.rn*Math.PI/2;
+    }
+  }
+
+  /* フィールド座標を実際に回転 */
+  _transformF(){
+    let s=((this.rn%4)+4)%4;
+    if(!s)return;
+    const nf=new Map();
+    for(const[k,c]of this.F){
+      let[x,y]=k.split(',').map(Number);
+      for(let i=0;i<s;i++){const t=x;x=-y;y=t;}
+      nf.set(`${x},${y}`,c);
+    }
+    this.F=nf;
+  }
+
+  /* 更新 */
+  update(dt){
+    if(this.ov)return;
+
+    /* 回転アニメーション中 */
+    if(this.anim){
+      this.at+=dt;
+      if(this.at>=this.ad){
+        this._transformF();
+        this.anim=false;
+        this._spawn();
+      }
+      return;
+    }
+    if(!this.p)return;
+
+    /* 重力 */
+    const iv=this.sd?40:this.di;
+    this.dt_+=dt*1000;
+    while(this.dt_>=iv){
+      this.dt_-=iv;
+      if(!this._move(0,1)){this._lock();return;}
+    }
+  }
+
+  /* ズーム計算 */
+  _zoom(){
+    let x0=-1,x1=1,y0=-1,y1=1;
+    const add=(x,y)=>{x0=Math.min(x0,x);x1=Math.max(x1,x+1);y0=Math.min(y0,y);y1=Math.max(y1,y+1);};
+    for(const k of this.F.keys()){const[x,y]=k.split(',').map(Number);add(x,y);}
+    if(this.p)for(const[bx,by]of this.p.b)add(this.p.x+bx,this.p.y+by);
+    const w=x1-x0,h=y1-y0;
+    const d=this.anim?Math.sqrt(w*w+h*h):Math.max(w,h);
+    this.ts=Math.min(32,Math.max(5,Math.min(W*.55,H*.45)/(d+3)));
+    this.sc+=(this.ts-this.sc)*.07;
+  }
+
+  /* 描画 */
+  draw(){
+    this._zoom();
+    const s=this.sc;
+    ctx.fillStyle='#ffffff';
+    ctx.fillRect(0,0,W,H);
+
+    ctx.save();
+    ctx.translate(W/2,H/2);
+
+    /* 回転アニメーション (ease in-out) */
+    if(this.anim){
+      const t=Math.min(this.at/this.ad,1);
+      const e=t<.5?2*t*t:1-(-2*t+2)**2/2;
+      ctx.rotate(this.aa*e);
+    }
+
+    /* 配置済みブロック */
+    for(const k of this.F.keys()){
+      const[gx,gy]=k.split(',').map(Number);
+      blk(gx,gy,s,PCOL);
+    }
+
+    /* 支点 */
+    ctx.beginPath();
+    ctx.arc(0,0,Math.max(2,s*.13),0,Math.PI*2);
+    ctx.fillStyle='#999';
+    ctx.fill();
+
+    /* ゴースト＋アクティブピース */
+    if(this.p&&!this.anim){
+      const gy=this._ghostY();
+      if(gy!=null){
+        for(const[bx,by]of this.p.b)ghost(this.p.x+bx,gy+by,s);
+      }
+      for(const[bx,by]of this.p.b)blk(this.p.x+bx,this.p.y+by,s,ACOL);
+      /* 回転中心 */
+      ctx.beginPath();
+      ctx.arc(this.p.x*s,this.p.y*s,Math.max(1.5,s*.1),0,Math.PI*2);
+      ctx.fillStyle='rgba(0,0,0,.25)';
+      ctx.fill();
+    }
+
+    ctx.restore();
+
+    /* NEXT */
+    drawNext(this);
+
+    /* GAME OVER */
+    if(this.ov){
+      ctx.fillStyle='rgba(255,255,255,.8)';
+      ctx.fillRect(0,0,W,H);
+      ctx.textAlign='center';
+      ctx.fillStyle='#000';
+      ctx.font='bold 26px monospace';
+      ctx.fillText('GAME OVER',W/2,H/2-8);
+      ctx.font='12px monospace';ctx.fillStyle='#666';
+      ctx.fillText(this.n+' pieces  |  R to restart',W/2,H/2+18);
+    }
+
+    /* 操作説明 */
+    if(!this.ov){
+      ctx.fillStyle='rgba(0,0,0,.2)';
+      ctx.font='10px monospace';ctx.textAlign='center';
+      ctx.fillText('\u2190\u2192 Move  \u2191 Rotate  \u2193 Drop  Space Hard',W/2,H-8);
+    }
+  }
+}
+
+/* ブロック描画 */
+function blk(gx,gy,s,col){
+  const g=Math.max(1,s*.06);
+  ctx.fillStyle=col;
+  ctx.fillRect((gx-.5)*s+g,(gy-.5)*s+g,s-g*2,s-g*2);
+}
+
+/* ゴーストブロック */
+function ghost(gx,gy,s){
+  const g=Math.max(1,s*.06);
+  ctx.strokeStyle='rgba(0,0,0,.2)';
+  ctx.lineWidth=1;
+  ctx.strokeRect((gx-.5)*s+g,(gy-.5)*s+g,s-g*2,s-g*2);
+}
+
+/* NEXTピース */
+function drawNext(g){
+  const sh=S[g.ni];
+  const col=ACOL;
+  const ns=13,ox=W/2,oy=32;
+  let sx=0,sy=0;
+  for(const[bx,by]of sh){sx+=bx;sy+=by;}
+  sx/=sh.length;sy/=sh.length;
+  ctx.fillStyle='rgba(0,0,0,.3)';
+  ctx.font='9px monospace';ctx.textAlign='center';
+  ctx.fillText('NEXT',ox,12);
+  for(const[bx,by]of sh){
+    ctx.fillStyle=col;
+    ctx.fillRect(ox+(bx-sx)*ns-ns/2+1,oy+(by-sy)*ns-ns/2+1,ns-2,ns-2);
+  }
+}
+
+/* 入力 */
+G=new Game();
+document.addEventListener('keydown',e=>{
+  if(e.key==='r'||e.key==='R'){G=new Game();return;}
+  if(G.ov||G.anim)return;
+  switch(e.key){
+    case'ArrowLeft':G._move(-1,0);break;
+    case'ArrowRight':G._move(1,0);break;
+    case'ArrowDown':G.sd=true;break;
+    case'ArrowUp':case'z':case'Z':G._rotate();break;
+    case' ':G._hard();break;
+  }
+  if(['ArrowLeft','ArrowRight','ArrowDown','ArrowUp',' '].includes(e.key))e.preventDefault();
+});
+document.addEventListener('keyup',e=>{if(e.key==='ArrowDown')G.sd=false;});
+
+/* ループ */
+let lt=performance.now();
+!function lp(t){
+  const dt=Math.min((t-lt)/1000,.08);lt=t;
+  G.update(dt);G.draw();
+  requestAnimationFrame(lp);
+}(lt);
+</script>
+</body>
+</html>
