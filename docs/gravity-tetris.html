@@ -38,32 +38,30 @@ canvas{
   max-height:100%;
 }
 
+/* コントローラー */
 #ctrl{
-  display:none;
-  width:100%;
-  max-width:480px;
-  padding:6px 10px 12px;
-  gap:6px;
-  flex:0 0 auto;
-  min-height:122px;
-  justify-content:center;
-  align-items:center;
-  flex-direction:column;
-}
-
-#ctrl .row{
   display:flex;
-  justify-content:center;
-  gap:6px;
+  width:100%;
+  max-width:520px;
+  padding:8px 12px 12px;
+  flex:0 0 auto;
+  justify-content:space-between;
+  align-items:center;
 }
 
-#ctrl button{
-  font-size:22px;
-  width:60px;
-  height:52px;
+/* 十字キー */
+.dpad{
+  display:grid;
+  grid-template-columns:48px 48px 48px;
+  grid-template-rows:48px 48px 48px;
+  gap:2px;
+  flex-shrink:0;
+}
+.dpad button{
+  font-size:20px;
   border:none;
-  border-radius:10px;
-  background:#e0e0e0;
+  border-radius:6px;
+  background:#d0d0d0;
   color:#333;
   cursor:pointer;
   display:flex;
@@ -72,33 +70,68 @@ canvas{
   -webkit-tap-highlight-color:transparent;
   touch-action:manipulation;
 }
+.dpad button:active{background:#aaa}
+.dpad .blank{background:transparent;pointer-events:none}
+.dpad .dup{grid-column:2;grid-row:1}
+.dpad .dleft{grid-column:1;grid-row:2}
+.dpad .dcenter{grid-column:2;grid-row:2;background:#bbb;border-radius:4px;pointer-events:none}
+.dpad .dright{grid-column:3;grid-row:2}
+.dpad .ddown{grid-column:2;grid-row:3}
 
-#ctrl button:active{background:#bbb}
-#ctrl button.wide{width:130px;font-size:16px;letter-spacing:1px}
+/* 赤・青ボタン */
+.ab-btns{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex-shrink:0;
+}
+.ab-btns button{
+  width:52px;
+  height:52px;
+  border:none;
+  border-radius:50%;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+}
+.ab-btns .btn-blue{background:#2255bb;margin-top:20px}
+.ab-btns .btn-blue:active{background:#1a4090}
+.ab-btns .btn-red{background:#cc2222;margin-top:-20px}
+.ab-btns .btn-red:active{background:#991818}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 
 <div id="ctrl">
-  <div class="row">
-    <button id="bl">&#9664;</button>
-    <button id="brot">&#8635;</button>
-    <button id="bd">&#9660;</button>
-    <button id="br">&#9654;</button>
+  <!-- 十字キー -->
+  <div class="dpad">
+    <div class="blank"></div>
+    <button class="dup" id="bup">&#9650;</button>
+    <div class="blank"></div>
+    <button class="dleft" id="bl">&#9664;</button>
+    <div class="dcenter"></div>
+    <button class="dright" id="br">&#9654;</button>
+    <div class="blank"></div>
+    <button class="ddown" id="bd">&#9660;</button>
+    <div class="blank"></div>
   </div>
-  <div class="row">
-    <button id="bhard" class="wide">DROP</button>
+  <!-- 青（ハードドロップ）・赤（回転） -->
+  <div class="ab-btns">
+    <button class="btn-blue" id="bbtn"></button>
+    <button class="btn-red" id="abtn"></button>
   </div>
 </div>
 
 <script>
 'use strict';
 
-/* モバイル判定 */
+/* コントローラー常時表示 */
 const isMobile = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 const ctrlEl = document.getElementById('ctrl');
-if (isMobile) ctrlEl.style.display = 'flex';
 
 /* キャンバス */
 const cvs = document.getElementById('c');
@@ -114,7 +147,7 @@ function resize(){
   const vw = vv ? vv.width : window.innerWidth;
   const vh = vv ? vv.height : window.innerHeight;
 
-  const ctrlH = isMobile ? ctrlEl.offsetHeight : 0;
+  const ctrlH = ctrlEl.offsetHeight;
 
   const safeTop = parseFloat(getComputedStyle(document.body).paddingTop) || 0;
   const safeBottom = parseFloat(getComputedStyle(document.body).paddingBottom) || 0;
@@ -568,16 +601,14 @@ class Game{
       ctx.fillText('GAME OVER',W/2,H/2-8);
       ctx.font='12px monospace';
       ctx.fillStyle='#666';
-      const msg=isMobile ? this.n+' pieces  |  Tap to restart' : this.n+' pieces  |  R to restart';
-      ctx.fillText(msg,W/2,H/2+18);
+      ctx.fillText(this.n+' pieces  |  Tap to restart',W/2,H/2+18);
     }
 
     if(!this.ov){
       ctx.fillStyle='rgba(0,0,0,.2)';
       ctx.font='10px monospace';
       ctx.textAlign='center';
-      const help=isMobile ? '' : '←→ Move  ↑ Rotate  ↓ Drop  Space Hard';
-      ctx.fillText(help,W/2,H-8);
+      ctx.fillText('',W/2,H-8);
     }
   }
 }
@@ -644,15 +675,16 @@ document.addEventListener('keyup',e=>{
   if(e.key==='ArrowDown') G.sd=false;
 });
 
-/* ボタン操作（スマホ） */
+/* ボタン操作（タッチ＋マウス共通） */
 (function(){
   function repeat(id,action){
     const btn=document.getElementById(id);
+    if(!btn) return;
     let tid=0,iid=0;
 
     function start(e){
       e.preventDefault();
-      if(G.ov){G=new Game();return;}
+      if(G.ov) return;
       action();
       clearTimeout(tid);
       clearInterval(iid);
@@ -668,23 +700,33 @@ document.addEventListener('keyup',e=>{
     btn.addEventListener('touchstart',start,{passive:false});
     btn.addEventListener('touchend',stop,{passive:false});
     btn.addEventListener('touchcancel',stop,{passive:false});
+    btn.addEventListener('mousedown',start);
+    btn.addEventListener('mouseup',stop);
+    btn.addEventListener('mouseleave',stop);
   }
 
   function once(id,action){
     const btn=document.getElementById(id);
-    btn.addEventListener('touchstart',e=>{
+    if(!btn) return;
+    function fire(e){
       e.preventDefault();
-      if(G.ov){G=new Game();return;}
+      if(G.ov) return;
       action();
-    },{passive:false});
+    }
+    btn.addEventListener('touchstart',fire,{passive:false});
     btn.addEventListener('touchend',e=>e.preventDefault(),{passive:false});
+    btn.addEventListener('mousedown',fire);
   }
 
+  /* 十字キー */
   repeat('bl',()=>G._move(-1,0));
   repeat('br',()=>G._move(1,0));
   repeat('bd',()=>G._move(0,1));
-  once('brot',()=>G._rotate());
-  once('bhard',()=>G._hard());
+  once('bup',()=>G._hard());          /* ↑ = ハードドロップ */
+
+  /* 赤 = 回転, 青 = ハードドロップ */
+  once('abtn',()=>G._rotate());
+  once('bbtn',()=>G._hard());
 
   cvs.addEventListener('touchstart',e=>{
     e.preventDefault();
