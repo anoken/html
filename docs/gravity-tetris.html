@@ -239,6 +239,7 @@ class Game{
     this.sd = false;          // soft drop
     this.ov = false;          // game over
     this.n = 0;               // piece count
+    this.score = 0;           // スコア
 
     this._spawn();
   }
@@ -319,34 +320,57 @@ class Game{
   }
 
   _clearLines(){
-    let cleared = false;
+    if(this.F.size === 0) return;
 
+    let cleared = false;
+    const toDel = new Set();
+
+    /* 横方向: 各行で連続するブロックの並びが8個以上なら消す */
     const rows = new Map();
     for(const k of this.F.keys()){
-      const y = +k.split(',')[1];
-      rows.set(y, (rows.get(y)||0) + 1);
+      const [x,y] = k.split(',').map(Number);
+      if(!rows.has(y)) rows.set(y,[]);
+      rows.get(y).push(x);
     }
-    for(const [y,cnt] of rows){
-      if(cnt >= 8){
-        for(const k of [...this.F.keys()]){
-          if(+k.split(',')[1] === y) this.F.delete(k);
+    for(const [y,xs] of rows){
+      xs.sort((a,b)=>a-b);
+      let run = [xs[0]];
+      for(let i=1;i<xs.length;i++){
+        if(xs[i] === xs[i-1]+1){
+          run.push(xs[i]);
+        }else{
+          if(run.length >= 8) for(const x of run) toDel.add(`${x},${y}`);
+          run = [xs[i]];
         }
-        cleared = true;
       }
+      if(run.length >= 8) for(const x of run) toDel.add(`${x},${y}`);
     }
 
+    /* 縦方向: 各列で連続するブロックの並びが8個以上なら消す */
     const cols = new Map();
     for(const k of this.F.keys()){
-      const x = +k.split(',')[0];
-      cols.set(x, (cols.get(x)||0) + 1);
+      const [x,y] = k.split(',').map(Number);
+      if(!cols.has(x)) cols.set(x,[]);
+      cols.get(x).push(y);
     }
-    for(const [x,cnt] of cols){
-      if(cnt >= 8){
-        for(const k of [...this.F.keys()]){
-          if(+k.split(',')[0] === x) this.F.delete(k);
+    for(const [x,ys] of cols){
+      ys.sort((a,b)=>a-b);
+      let run = [ys[0]];
+      for(let i=1;i<ys.length;i++){
+        if(ys[i] === ys[i-1]+1){
+          run.push(ys[i]);
+        }else{
+          if(run.length >= 8) for(const y of run) toDel.add(`${x},${y}`);
+          run = [ys[i]];
         }
-        cleared = true;
       }
+      if(run.length >= 8) for(const y of run) toDel.add(`${x},${y}`);
+    }
+
+    if(toDel.size > 0){
+      this.score += toDel.size * 100;
+      for(const k of toDel) this.F.delete(k);
+      cleared = true;
     }
 
     if(cleared) this._removeIsolated();
@@ -407,6 +431,7 @@ class Game{
     }
 
     if(isolated.length > 0){
+      this.score += isolated.length * 100;
       this.falling.push({blocks:isolated, vy:0, dy:0, alpha:1});
       this.fallAnim = true;
     }
@@ -591,6 +616,12 @@ class Game{
     ctx.restore();
 
     drawNext(this);
+
+    /* スコア表示 */
+    ctx.fillStyle='#cc2222';
+    ctx.font='bold 14px monospace';
+    ctx.textAlign='left';
+    ctx.fillText('SCORE: '+this.score,8,16);
 
     if(this.ov){
       ctx.fillStyle='rgba(255,255,255,.8)';
