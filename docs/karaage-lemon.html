@@ -998,8 +998,8 @@
     chars.forEach((c, j) => { c.g.visible = j === i; });
     if (!CHARACTERS[i].hidden) { lastChar = i; store.set(KEYS.char, i); }
   }
-  // 隠しコマンド：M5Stack を相手の頭にかぶせると、からあげ帝国閣下と入れ替わる
-  function secretSwap() {
+  // 隠しコマンド：M5Stack を相手の頭にかぶせると、からあげ帝国閣下と入れ替わる（一旦無効化。戻すときはこの関数と上の2か所のコメントを外す）
+  /* function secretSwap() {
     const toSecret = charSel !== SECRET_CHAR;
     selectChar(toSecret ? SECRET_CHAR : lastChar);
     popup(toSecret ? CHARACTERS[SECRET_CHAR].name + ' 降臨！' : CHARACTERS[charSel].name + ' に戻った', vec(0, 1.5, OPP_Z), 'big');
@@ -1007,7 +1007,7 @@
     setTimeout(() => { if (game.mode === 'play') el.flash.style.opacity = 0; }, 120);
     setTimeout(() => { if (game.mode === 'play') el.flash.style.background = '#c00'; }, 320);
     sfx.secret();
-  }
+  } */
   (() => {
     const saved = parseInt(store.get(KEYS.char), 10);
     selectChar(CHARACTERS[saved] && !CHARACTERS[saved].hidden ? saved : DEFAULT_CHAR);
@@ -1105,7 +1105,7 @@
     if (e.button === 2) putBack();
     else if (!game.tool) tryPickUp();
     else if (game.tool === 'm5') {      // かけられないので、クリックで置く。頭の上なら隠しコマンド
-      if (headAim) secretSwap();
+      // if (headAim) secretSwap();   // 隠しキャラ（からあげ帝国閣下）は一旦無効化
       putBack();
     } else game.squeezing = true;
   });
@@ -1168,7 +1168,7 @@
     const kh = ray.intersectObjects(karaMeshes)[0];
     aimed = kh ? kh.object.userData.k : null;
     // ビールは相手の体に合わせれば頭の上へ。M5Stack は頭そのものを狙ったときだけ（隠しコマンド）
-    const headTarget = tool === 'beer' ? opp.g : tool === 'm5' ? opp.head : null;
+    const headTarget = tool === 'beer' ? opp.g : null;   // 隠しキャラ無効化中: tool === 'm5' ? opp.head : null
     headAim = !kh && !!headTarget && ray.intersectObject(headTarget, true).length > 0;
 
     if (headAim) {
