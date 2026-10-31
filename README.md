@@ -1,7 +1,7 @@
 # HTML Mini Apps Collection
 
 ブラウザで動くミニアプリ・ゲーム・シミュレーションのコレクションです。
-すべて単一HTMLファイルで完結し、外部ライブラリ不要で動作します。
+ほとんどは単一HTMLファイルで完結し、外部ライブラリ不要で動作します（クイズ4本は画像フォルダ付き）。
 
 ## デモ一覧
 
@@ -20,6 +20,11 @@
 | コップの水シミュレーション | 加速度センサーでコップの中の水の動きをシミュレーション | [Play](https://anoken.github.io/html/water_cup_drift.html) |
 | 花粉ビューワー | 住所を入力して花粉の飛散状況をビジュアル表示 | [Play](https://anoken.github.io/html/pollen_view.html) |
 | モールス信号変換器 | カタカナを和文モールス信号に変換し、音と光で再生・WAV保存が可能 | [Play](https://anoken.github.io/html/morse_code.html) |
+| 重心テトリス | 重心を意識して積む物理テトリス | [Play](https://anoken.github.io/html/gravity-tetris.html) |
+| 総理大臣クイズ | 歴代総理大臣66人の顔写真から名前を当てる3択クイズ（10問・毎回出題が変わり難易度が上がる） | [Play](https://anoken.github.io/html/prime-minister-quiz/) |
+| 歴代天皇クイズ | 初代神武天皇から今上天皇まで52人の肖像とヒントから名前を当てる3択クイズ | [Play](https://anoken.github.io/html/emperor-quiz/) |
+| 歴代お札クイズ | 明治以降のお札の肖像になった21人を当てる3択クイズ（人物当て・券種当ての2形式） | [Play](https://anoken.github.io/html/banknote-quiz/) |
+| アメリカ歴代大統領クイズ | 歴代大統領45人の公式肖像から名前を当てる3択クイズ | [Play](https://anoken.github.io/html/us-president-quiz/) |
 
 ## ディレクトリ構成
 
@@ -29,6 +34,7 @@ html/
 ├── LICENSE
 ├── docs/                          # GitHub Pages 公開ディレクトリ
 │   ├── digital-rain.html          # Digital Rain
+│   ├── gravity-tetris.html        # 重心テトリス
 │   ├── inverted_pendulum.html     # 倒立振子バランスゲーム
 │   ├── inverted_pendulum_swingup.html # 倒立振子 振り上げ制御
 │   ├── mahjong_draft.html         # 麻雀ドラフト
@@ -44,10 +50,20 @@ html/
 │   ├── water_cup_drift.html       # コップの水シミュレーション
 │   ├── image_oshiri/              # プリけつ探し用画像
 │   ├── image_otoko_sagase/        # 男探し用画像
-│   └── image_shiryoku/            # 視力検査ゲーム用画像
+│   ├── image_shiryoku/            # 視力検査ゲーム用画像
+│   ├── prime-minister-quiz/       # 総理大臣クイズ（index.html + img/）
+│   ├── emperor-quiz/              # 歴代天皇クイズ（index.html + img/ + images.json）
+│   ├── banknote-quiz/             # 歴代お札クイズ（index.html + img/ + images.json）
+│   └── us-president-quiz/         # アメリカ歴代大統領クイズ（index.html + img/ + images.json）
 └── public/
     └── readme.md
 ```
+
+## クイズの画像について
+
+- 総理大臣クイズの顔写真は[首相官邸ホームページ「歴代内閣」](https://www.kantei.go.jp/jp/rekidainaikaku/index.html)のもので、政府標準利用規約（第2.0版、CC BY 4.0 互換）に基づき出典を明記して利用しています。
+- 天皇・お札・大統領クイズの肖像は Wikimedia Commons のパブリックドメインまたは CC0 の画像です。各ページ下部の「画像の出典一覧」と `images.json` にファイル名・作者・ライセンスを記載しています。
+- お札クイズは紙幣の券面画像を使わず、肖像になった人物の写真・肖像画のみを使用しています。
 
 ## 動作環境
 
