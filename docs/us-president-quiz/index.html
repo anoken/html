@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="author" content="aNo研">
+<title>アメリカ歴代大統領クイズ</title>
+<style>body{margin:0} img{max-width:100%} [hidden]{display:none!important}</style>
+</head>
+<body>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+/* Layout: one card per question, portrait (or a crest placeholder) left / hint and choices right, stacking on phones.
+   Palette: 星条旗の紺を主役に、ドル紙幣の緑をアクセントに。 */
+:root {
+  --bg: #eef0f3;
+  --paper: #fbfcfe;
+  --fg: #1b2230;
+  --muted: #66707f;
+  --line: #d2d8e2;
+  --accent: #1f3a6e;
+  --accent-ink: #f3f6ff;
+  --gold: #b3261e;
+  --good: #1f6b3a;
+  --good-bg: #e6f2e9;
+  --bad: #9a2a1f;
+  --bad-bg: #f8e7e3;
+  --font-display: "Shippori Mincho", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  --font-body: "Zen Kaku Gothic New", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141a24; --paper: #1e2633; --fg: #e8ecf3; --muted: #9ba6b8; --line: #344052;
+    --accent: #8fb3ff; --accent-ink: #0d1626; --gold: #ff8a7a;
+    --good: #7fcf97; --good-bg: #1d3326; --bad: #ef8a7c; --bad-bg: #3a211d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141a24; --paper: #1e2633; --fg: #e8ecf3; --muted: #9ba6b8; --line: #344052;
+  --accent: #8fb3ff; --accent-ink: #0d1626; --gold: #ff8a7a;
+  --good: #7fcf97; --good-bg: #1d3326; --bad: #ef8a7c; --bad-bg: #3a211d;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.7;
+  padding-block: 28px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 860px; margin: 0 auto; display: grid; gap: 20px; }
+header { display: grid; gap: 4px; }
+.eyebrow { font-size: 12px; letter-spacing: .18em; color: var(--muted); text-transform: uppercase; }
+h1 { font-family: var(--font-display); font-weight: 800; font-size: clamp(26px, 5vw, 38px); line-height: 1.25; margin: 0; text-wrap: balance; }
+h1 small { display: block; font-size: .5em; font-weight: 500; color: var(--muted); margin-top: 4px; }
+
+.status { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.status b { color: var(--fg); font-weight: 700; }
+.bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+@media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
+.stars { letter-spacing: .1em; color: var(--gold); }
+
+.card { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 22px; display: grid; grid-template-columns: minmax(0, 240px) minmax(0, 1fr); gap: 22px; }
+@media (max-width: 600px) { .card { grid-template-columns: 1fr; } }
+.photo { display: grid; gap: 8px; margin: 0; }
+.photo .frame { width: 100%; max-width: 240px; aspect-ratio: 3 / 4; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); margin: 0 auto; display: grid; place-items: center; overflow: hidden; }
+.photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo .crest { font-family: var(--font-display); color: var(--gold); font-size: 72px; line-height: 1; }
+.photo .crest small { display: block; font-family: var(--font-body); font-size: 12px; color: var(--muted); margin-top: 10px; }
+.photo figcaption { font-size: 12px; color: var(--muted); text-align: center; }
+.q { display: grid; gap: 14px; align-content: start; min-width: 0; }
+.q h2 { font-family: var(--font-display); font-size: 22px; margin: 0; font-weight: 700; }
+.q .lv { font-size: 13px; color: var(--muted); display: flex; gap: 14px; flex-wrap: wrap; }
+.hint { font-size: 15px; padding: 10px 14px; border-radius: 8px; background: var(--bg); border-left: 4px solid var(--gold); }
+.hintbtn { font: inherit; font-size: 14px; cursor: pointer; background: transparent; color: var(--accent); border: 1.5px dashed var(--accent); border-radius: 8px; padding: 8px 14px; justify-self: start; }
+.hintbtn:focus-visible, .btn:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
+.choices { display: grid; gap: 10px; }
+.choice {
+  font: inherit; text-align: left; cursor: pointer; width: 100%;
+  background: var(--paper); color: var(--fg); border: 1.5px solid var(--line); border-radius: 8px;
+  padding: 12px 14px; display: flex; gap: 12px; align-items: center; font-size: 17px;
+}
+.choice .k { font-family: var(--font-display); font-weight: 700; color: var(--accent); width: 1.4em; flex: none; }
+.choice:hover:not(:disabled) { border-color: var(--accent); }
+.choice:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.choice:disabled { cursor: default; }
+.choice.correct { background: var(--good-bg); border-color: var(--good); }
+.choice.wrong { background: var(--bad-bg); border-color: var(--bad); }
+.choice.dim { opacity: .55; }
+.result { display: grid; gap: 6px; padding: 12px 14px; border-radius: 8px; border-left: 4px solid var(--line); background: var(--bg); font-size: 15px; }
+.result.ok { border-left-color: var(--good); }
+.result.ng { border-left-color: var(--bad); }
+.result .verdict { font-family: var(--font-display); font-weight: 700; font-size: 18px; }
+.result.ok .verdict { color: var(--good); }
+.result.ng .verdict { color: var(--bad); }
+.result .name { font-weight: 700; }
+.btn { font: inherit; font-weight: 700; cursor: pointer; background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 8px; padding: 12px 22px; font-size: 16px; justify-self: start; }
+.btn.ghost { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
+
+.final { display: grid; gap: 16px; background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 26px 22px; }
+.final .score { font-family: var(--font-display); font-size: clamp(40px, 10vw, 64px); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.final .score span { font-size: .4em; color: var(--muted); font-weight: 500; }
+.final .rank { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--accent); }
+.review { display: grid; gap: 6px; font-size: 14px; list-style: none; padding: 0; margin: 0; }
+.review li { display: grid; grid-template-columns: 1.6em 1.2em 1fr; gap: 8px; align-items: baseline; font-variant-numeric: tabular-nums; }
+.review .mk { font-weight: 700; }
+.review .ok { color: var(--good); } .review .ng { color: var(--bad); }
+.review .ans { color: var(--muted); }
+footer { font-size: 12px; color: var(--muted); line-height: 1.6; }
+footer a { color: inherit; }
+footer .sig { font-weight: 700; color: var(--fg); font-size: 13px; margin-bottom: 4px; }
+footer details { margin-top: 6px; }
+footer summary { cursor: pointer; }
+footer ul { padding-left: 1.2em; margin: 6px 0 0; }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Presidents of the United States</div>
+    <h1>アメリカ歴代大統領クイズ<small>この大統領はだれでしょう？ 3択・全10問（出題は毎回変わります）</small></h1>
+  </header>
+
+  <div class="status" id="status">
+    <span>問 <b id="qno">1</b> / 10</span>
+    <span>正解 <b id="score">0</b></span>
+    <span>難易度 <span class="stars" id="stars">★</span></span>
+  </div>
+  <div class="bar"><i id="barfill"></i></div>
+
+  <section class="card" id="card">
+    <figure class="photo">
+      <div class="frame" id="frame"></div>
+      <figcaption id="cap"></figcaption>
+    </figure>
+    <div class="q">
+      <h2 id="qtext">この大統領はだれでしょう？</h2>
+      <div class="lv"><span id="lv"></span><span id="era"></span></div>
+      <div class="hint" id="hint" hidden></div>
+      <button class="hintbtn" id="hintbtn" type="button" hidden>ヒントを見る</button>
+      <div class="choices" id="choices"></div>
+      <div class="result" id="result" hidden>
+        <div class="verdict" id="verdict"></div>
+        <div><span class="name" id="aname"></span>（<span id="ainfo"></span>）</div>
+        <div id="afact"></div>
+      </div>
+      <button class="btn" id="next" type="button" hidden>次の問題へ</button>
+    </div>
+  </section>
+
+  <section class="final" id="final" hidden>
+    <div class="eyebrow">結果</div>
+    <div class="score"><span id="fscore">0</span><span> / 10 問正解</span></div>
+    <div class="rank" id="frank"></div>
+    <ul class="review" id="review"></ul>
+    <button class="btn ghost" id="again" type="button">もう一度挑戦する</button>
+  </section>
+
+  <footer>
+    <div class="sig">制作: aNo研</div>
+    肖像は公式肖像画・公式写真（米国政府の著作物などパブリックドメイン）を Wikimedia Commons から使用。代数はグロバー・クリーブランドとドナルド・トランプを2回数える公式の数え方です。
+    <details><summary>画像の出典一覧</summary><ul>
+<li>ジョージ・ワシントン: <a href="https://commons.wikimedia.org/wiki/File:Gilbert_Stuart_Williamstown_Portrait_of_George_Washington.jpg" target="_blank" rel="noopener">Gilbert_Stuart_Williamstown_Portrait_of_George_Washington.jpg</a>（Gilbert Stuart、Public domain）</li>
+<li>ジョン・アダムズ: <a href="https://commons.wikimedia.org/wiki/File:Gilbert_Stuart,_John_Adams,_c._1800-1815,_NGA_42933.jpg" target="_blank" rel="noopener">Gilbert_Stuart,_John_Adams,_c._1800-1815,_NGA_42933.jpg</a>（Gilbert Stuart、CC0）</li>
+<li>トーマス・ジェファーソン: <a href="https://commons.wikimedia.org/wiki/File:Official_Presidential_portrait_of_Thomas_Jefferson_(by_Rembrandt_Peale,_1800).jpg" target="_blank" rel="noopener">Official_Presidential_portrait_of_Thomas_Jefferson_(by_Rembrandt_Peale,_1800).jpg</a>（Rembrandt Peale、Public domain）</li>
+<li>ジェームズ・マディソン: <a href="https://commons.wikimedia.org/wiki/File:James_Madison.jpg" target="_blank" rel="noopener">James_Madison.jpg</a>（John Vanderlyn、Public domain）</li>
+<li>ジェームズ・モンロー: <a href="https://commons.wikimedia.org/wiki/File:James_Monroe_White_House_portrait_1819_(cropped)(2).jpg" target="_blank" rel="noopener">James_Monroe_White_House_portrait_1819_(cropped)(2).jpg</a>（Samuel Finley Breese Morse、Public domain）</li>
+<li>ジョン・クインシー・アダムズ: <a href="https://commons.wikimedia.org/wiki/File:JQA_Photo_Crop_(cropped).jpg" target="_blank" rel="noopener">JQA_Photo_Crop_(cropped).jpg</a>（Mathew Brady、Public domain）</li>
+<li>アンドリュー・ジャクソン: <a href="https://commons.wikimedia.org/wiki/File:Andrew_jackson_head_(cropped).jpg" target="_blank" rel="noopener">Andrew_jackson_head_(cropped).jpg</a>（Ralph Eleaser Whiteside Earl、Public domain）</li>
+<li>マーティン・ヴァン・ビューレン: <a href="https://commons.wikimedia.org/wiki/File:Martin_Van_Buren_by_Mathew_Brady_c1855-58-(4).jpg" target="_blank" rel="noopener">Martin_Van_Buren_by_Mathew_Brady_c1855-58-(4).jpg</a>（Mathew Benjamin Brady、Public domain）</li>
+<li>ウィリアム・ハリソン: <a href="https://commons.wikimedia.org/wiki/File:William_Henry_Harrison_crop.jpg" target="_blank" rel="noopener">William_Henry_Harrison_crop.jpg</a>（Albert Gallatin Hoit、Public domain）</li>
+<li>ジョン・タイラー: <a href="https://commons.wikimedia.org/wiki/File:Tyler,_John,_by_Healy_(1842,_NPG_2019_13)_(cropped).jpg" target="_blank" rel="noopener">Tyler,_John,_by_Healy_(1842,_NPG_2019_13)_(cropped).jpg</a>（George Peter Alexander Healy、Public domain）</li>
+<li>ジェームズ・ポーク: <a href="https://commons.wikimedia.org/wiki/File:James_K._Polk_restored_(3x4_cropped).jpg" target="_blank" rel="noopener">James_K._Polk_restored_(3x4_cropped).jpg</a>（James_Polk.jpg: Brady, Mathew B., 1823 (ca.)-1896, photographer.
+derivative work: Superwikifan (talk)、Public domain）</li>
+<li>ザカリー・テイラー: <a href="https://commons.wikimedia.org/wiki/File:Zachary_Taylor_restored_and_cropped_(3.5x4.5_cropped)_(2).jpg" target="_blank" rel="noopener">Zachary_Taylor_restored_and_cropped_(3.5x4.5_cropped)_(2).jpg</a>（Zachary_Taylor_half_plate_daguerreotype_c1843-45.png: unknown, possibly Maguire of New Orleans
+derivative work: Beao、Public domain）</li>
+<li>ミラード・フィルモア: <a href="https://commons.wikimedia.org/wiki/File:Millard_Fillmore_Better_Crop_(cropped).jpg" target="_blank" rel="noopener">Millard_Fillmore_Better_Crop_(cropped).jpg</a>（Mathew Benjamin Brady、Public domain）</li>
+<li>フランクリン・ピアース: <a href="https://commons.wikimedia.org/wiki/File:Mathew_Brady_-_Franklin_Pierce_-_alternate_crop_(cropped)(2).jpg" target="_blank" rel="noopener">Mathew_Brady_-_Franklin_Pierce_-_alternate_crop_(cropped)(2).jpg</a>（Mathew Benjamin Brady / Adam Cuerden、Public domain）</li>
+<li>ジェームズ・ブキャナン: <a href="https://commons.wikimedia.org/wiki/File:James_Buchanan_(cropped).jpg" target="_blank" rel="noopener">James_Buchanan_(cropped).jpg</a>（From Brady daguerreotype (Mathew Brady) (1822-1896)、Public domain）</li>
+<li>エイブラハム・リンカーン: <a href="https://commons.wikimedia.org/wiki/File:Abraham_Lincoln_O-77_matte_collodion_print.jpg" target="_blank" rel="noopener">Abraham_Lincoln_O-77_matte_collodion_print.jpg</a>（Alexander Gardner、Public domain）</li>
+<li>アンドリュー・ジョンソン: <a href="https://commons.wikimedia.org/wiki/File:Andrew_Johnson_photo_portrait_head_and_shoulders,_c1870-1880-Edit1.jpg" target="_blank" rel="noopener">Andrew_Johnson_photo_portrait_head_and_shoulders,_c1870-1880-Edit1.jpg</a>（Mathew Benjamin Brady、Public domain）</li>
+<li>ユリシーズ・グラント: <a href="https://commons.wikimedia.org/wiki/File:Ulysses_S._Grant_1870-1880_(cropped).jpg" target="_blank" rel="noopener">Ulysses_S._Grant_1870-1880_(cropped).jpg</a>（Brady-Handy Photograph Collection, Library of Congress、Public domain）</li>
+<li>ラザフォード・ヘイズ: <a href="https://commons.wikimedia.org/wiki/File:President_Rutherford_Hayes_1870_-_1880_Restored.jpg" target="_blank" rel="noopener">President_Rutherford_Hayes_1870_-_1880_Restored.jpg</a>（Mathew Benjamin Brady、Public domain）</li>
+<li>ジェームズ・ガーフィールド: <a href="https://commons.wikimedia.org/wiki/File:James_Abram_Garfield,_photo_portrait_seated.jpg" target="_blank" rel="noopener">James_Abram_Garfield,_photo_portrait_seated.jpg</a>（Unknown; part of Brady-Handy Photograph Collection.、Public domain）</li>
+<li>チェスター・アーサー: <a href="https://commons.wikimedia.org/wiki/File:Chester_A._Arthur_by_Abraham_Bogardus_(cropped)_(2).jpg" target="_blank" rel="noopener">Chester_A._Arthur_by_Abraham_Bogardus_(cropped)_(2).jpg</a>（Abraham Bogardus / Adam Cuerden、Public domain）</li>
+<li>グロバー・クリーブランド: <a href="https://commons.wikimedia.org/wiki/File:StephenGroverCleveland.jpg" target="_blank" rel="noopener">StephenGroverCleveland.jpg</a>（Napoleon Sarony、Public domain）</li>
+<li>ベンジャミン・ハリソン: <a href="https://commons.wikimedia.org/wiki/File:Pach_Brothers_-_Benjamin_Harrison_(cropped)_(cropped).jpg" target="_blank" rel="noopener">Pach_Brothers_-_Benjamin_Harrison_(cropped)_(cropped).jpg</a>（Adam Cuerden、Public domain）</li>
+<li>ウィリアム・マッキンリー: <a href="https://commons.wikimedia.org/wiki/File:McKinley_(cropped).jpg" target="_blank" rel="noopener">McKinley_(cropped).jpg</a>（Unknown author、Public domain）</li>
+<li>セオドア・ルーズベルト: <a href="https://commons.wikimedia.org/wiki/File:Theodore_Roosevelt_by_the_Pach_Bros_(4x5_cropped)_(3).jpg" target="_blank" rel="noopener">Theodore_Roosevelt_by_the_Pach_Bros_(4x5_cropped)_(3).jpg</a>（Adam Cuerden、Public domain）</li>
+<li>ウィリアム・タフト: <a href="https://commons.wikimedia.org/wiki/File:William_Howard_Taft_by_Pach_Brothers_(3x4_ropped)_(cropped).jpg" target="_blank" rel="noopener">William_Howard_Taft_by_Pach_Brothers_(3x4_ropped)_(cropped).jpg</a>（Pach Brothers, restored by Adam Cuerden、Public domain）</li>
+<li>ウッドロウ・ウィルソン: <a href="https://commons.wikimedia.org/wiki/File:President_Woodrow_Wilson_Harris_%26_Ewing_(3x4_cropped_b).jpg" target="_blank" rel="noopener">President_Woodrow_Wilson_Harris_&amp;_Ewing_(3x4_cropped_b).jpg</a>（Harris &amp;amp; Ewing, photographer、Public domain）</li>
+<li>ウォレン・ハーディング: <a href="https://commons.wikimedia.org/wiki/File:Warren_G._Harding_1920s_portrait_(3x4_cropped).jpg" target="_blank" rel="noopener">Warren_G._Harding_1920s_portrait_(3x4_cropped).jpg</a>（Harris &amp;amp; Ewing, photographer、Public domain）</li>
+<li>カルビン・クーリッジ: <a href="https://commons.wikimedia.org/wiki/File:President_Calvin_Coolidge,_1924_portrait_photograph_(3x4_cropped_2).jpeg" target="_blank" rel="noopener">President_Calvin_Coolidge,_1924_portrait_photograph_(3x4_cropped_2).jpeg</a>（Harris &amp;amp; Ewing、Public domain）</li>
+<li>ハーバート・フーバー: <a href="https://commons.wikimedia.org/wiki/File:President_Hoover_portrait.jpg" target="_blank" rel="noopener">President_Hoover_portrait.jpg</a>（Underwood &amp;amp; Underwood、Public domain）</li>
+<li>フランクリン・ルーズベルト: <a href="https://commons.wikimedia.org/wiki/File:FDR_in_1933_(3x4).jpg" target="_blank" rel="noopener">FDR in 1933 (3x4).jpg</a>（Elias Goldensky (1868-1943)、Public domain）</li>
+<li>ハリー・トルーマン: <a href="https://commons.wikimedia.org/wiki/File:TRUMAN_58-766-06_(cropped).jpg" target="_blank" rel="noopener">TRUMAN_58-766-06_(cropped).jpg</a>（National Archives and Records Administration. Office of Presidential Libraries. Harry S. Truman Library.、Public domain）</li>
+<li>ドワイト・アイゼンハワー: <a href="https://commons.wikimedia.org/wiki/File:Dwight_D._Eisenhower,_official_photo_portrait,_May_29,_1959_(cropped)(3).jpg" target="_blank" rel="noopener">Dwight_D._Eisenhower,_official_photo_portrait,_May_29,_1959_(cropped)(3).jpg</a>（White House、Public domain）</li>
+<li>ジョン・F・ケネディ: <a href="https://commons.wikimedia.org/wiki/File:John_F._Kennedy,_White_House_color_photo_portrait.jpg" target="_blank" rel="noopener">John_F._Kennedy,_White_House_color_photo_portrait.jpg</a>（Cecil W. Stoughton、Public domain）</li>
+<li>リンドン・ジョンソン: <a href="https://commons.wikimedia.org/wiki/File:Lyndon_B._Johnson,_photo_portrait,_color_(3x4_cropped)(2).jpg" target="_blank" rel="noopener">Lyndon_B._Johnson,_photo_portrait,_color_(3x4_cropped)(2).jpg</a>（Arnold Newman、Public domain）</li>
+<li>リチャード・ニクソン: <a href="https://commons.wikimedia.org/wiki/File:Richard_Nixon_presidential_portrait_(2).jpg" target="_blank" rel="noopener">Richard_Nixon_presidential_portrait_(2).jpg</a>（Department of Defense. Department of the Army. Office of the Deputy Chief of Staff for Operations. U.S. Army Audiovisual、Public domain）</li>
+<li>ジェラルド・フォード: <a href="https://commons.wikimedia.org/wiki/File:Gerald_Ford_presidential_portrait_(cropped).jpg" target="_blank" rel="noopener">Gerald_Ford_presidential_portrait_(cropped).jpg</a>（David Hume Kennerly、Public domain）</li>
+<li>ジミー・カーター: <a href="https://commons.wikimedia.org/wiki/File:Jimmy_Carter_Official_Portrait2_(3x4_cropped).jpg" target="_blank" rel="noopener">Jimmy_Carter_Official_Portrait2_(3x4_cropped).jpg</a>（Department of Defense. Department of the Navy. Naval Photographic Center、Public domain）</li>
+<li>ロナルド・レーガン: <a href="https://commons.wikimedia.org/wiki/File:Official_Portrait_of_President_Reagan_1981.jpg" target="_blank" rel="noopener">Official_Portrait_of_President_Reagan_1981.jpg</a>（Michael Evans、Public domain）</li>
+<li>ジョージ・H・W・ブッシュ: <a href="https://commons.wikimedia.org/wiki/File:George_H._W._Bush_presidential_portrait_(cropped)_(2).jpg" target="_blank" rel="noopener">George_H._W._Bush_presidential_portrait_(cropped)_(2).jpg</a>（David Valdez、Public domain）</li>
+<li>ビル・クリントン: <a href="https://commons.wikimedia.org/wiki/File:Bill_Clinton.jpg" target="_blank" rel="noopener">Bill_Clinton.jpg</a>（Bob McNeely, The White House[1]、Public domain）</li>
+<li>ジョージ・W・ブッシュ: <a href="https://commons.wikimedia.org/wiki/File:George-W-Bush.jpeg" target="_blank" rel="noopener">George-W-Bush.jpeg</a>（Eric Draper、Public domain）</li>
+<li>バラク・オバマ: <a href="https://commons.wikimedia.org/wiki/File:President_Barack_Obama.jpg" target="_blank" rel="noopener">President_Barack_Obama.jpg</a>（Official White House Photo by Pete Souza、Public domain）</li>
+<li>ドナルド・トランプ: <a href="https://commons.wikimedia.org/wiki/File:Official_Presidential_Portrait_of_President_Donald_J._Trump_(2025).jpg" target="_blank" rel="noopener">Official_Presidential_Portrait_of_President_Donald_J._Trump_(2025).jpg</a>（Daniel Torok、Public domain）</li>
+<li>ジョー・バイデン: <a href="https://commons.wikimedia.org/wiki/File:Joe_Biden_presidential_portrait.jpg" target="_blank" rel="noopener">Joe_Biden_presidential_portrait.jpg</a>（Adam Schultz、Public domain）</li>
+    </ul></details>
+  </footer>
+</div>
+
+<script>
+const POOL = [
+{"n": 1, "name": "ジョージ・ワシントン", "e": "F", "d": 1, "info": "初代（1789〜97年）", "fact": "独立戦争の総司令官。1ドル札の肖像です。"},
+{"n": 2, "name": "ジョン・アダムズ", "e": "F", "d": 3, "info": "第2代（1797〜1801年）", "fact": "初代副大統領から大統領に。ホワイトハウスに最初に住んだ大統領です。"},
+{"n": 3, "name": "トーマス・ジェファーソン", "e": "F", "d": 2, "info": "第3代（1801〜09年）", "fact": "独立宣言の起草者。ルイジアナ購入で国土を倍増させました。"},
+{"n": 4, "name": "ジェームズ・マディソン", "e": "F", "d": 3, "info": "第4代（1809〜17年）", "fact": "「合衆国憲法の父」。米英戦争（1812年）でホワイトハウスが焼かれました。"},
+{"n": 5, "name": "ジェームズ・モンロー", "e": "F", "d": 4, "info": "第5代（1817〜25年）", "fact": "ヨーロッパの干渉を拒む「モンロー主義」を宣言しました。"},
+{"n": 6, "name": "ジョン・クインシー・アダムズ", "e": "F", "d": 4, "info": "第6代（1825〜29年）", "fact": "第2代ジョン・アダムズの息子。初めての親子大統領です。"},
+{"n": 7, "name": "アンドリュー・ジャクソン", "e": "F", "d": 3, "info": "第7代（1829〜37年）", "fact": "20ドル札の肖像。民主党の創設者で、先住民強制移住法を進めました。"},
+{"n": 8, "name": "マーティン・ヴァン・ビューレン", "e": "F", "d": 4, "info": "第8代（1837〜41年）", "fact": "ニューヨーク州出身。在任中に1837年恐慌に見舞われました。"},
+{"n": 9, "name": "ウィリアム・ハリソン", "e": "F", "d": 5, "info": "第9代（1841年）", "fact": "就任31日で病死。在任期間が最も短い大統領です。"},
+{"n": 10, "name": "ジョン・タイラー", "e": "F", "d": 5, "info": "第10代（1841〜45年）", "fact": "大統領の死去により初めて副大統領から昇格。テキサス併合を決めました。"},
+{"n": 11, "name": "ジェームズ・ポーク", "e": "F", "d": 4, "info": "第11代（1845〜49年）", "fact": "米墨戦争でカリフォルニアなどを獲得し、領土を太平洋岸まで広げました。"},
+{"n": 12, "name": "ザカリー・テイラー", "e": "F", "d": 5, "info": "第12代（1849〜50年）", "fact": "米墨戦争の英雄。在任1年余りで急死しました。"},
+{"n": 13, "name": "ミラード・フィルモア", "e": "F", "d": 5, "info": "第13代（1850〜53年）", "fact": "ペリー提督を日本に派遣した大統領です。"},
+{"n": 14, "name": "フランクリン・ピアース", "e": "F", "d": 5, "info": "第14代（1853〜57年）", "fact": "カンザス・ネブラスカ法で奴隷制をめぐる対立を深めました。"},
+{"n": 15, "name": "ジェームズ・ブキャナン", "e": "F", "d": 5, "info": "第15代（1857〜61年）", "fact": "唯一、生涯独身だった大統領。南部諸州の離脱を止められませんでした。"},
+{"n": 16, "name": "エイブラハム・リンカーン", "e": "C", "d": 1, "info": "第16代（1861〜65年）", "fact": "南北戦争を指導し、奴隷解放宣言を出しました。1865年に暗殺。5ドル札の肖像です。"},
+{"n": 17, "name": "アンドリュー・ジョンソン", "e": "C", "d": 4, "info": "第17代（1865〜69年）", "fact": "リンカーン暗殺後に昇格。初めて弾劾訴追された大統領です（無罪）。"},
+{"n": 18, "name": "ユリシーズ・グラント", "e": "C", "d": 3, "info": "第18代（1869〜77年）", "fact": "南北戦争の北軍総司令官。50ドル札の肖像です。"},
+{"n": 19, "name": "ラザフォード・ヘイズ", "e": "C", "d": 5, "info": "第19代（1877〜81年）", "fact": "1876年の大接戦の選挙を経て就任。南部再建を終結させました。"},
+{"n": 20, "name": "ジェームズ・ガーフィールド", "e": "C", "d": 5, "info": "第20代（1881年）", "fact": "就任半年で銃撃され、死去しました。"},
+{"n": 21, "name": "チェスター・アーサー", "e": "C", "d": 5, "info": "第21代（1881〜85年）", "fact": "ガーフィールド暗殺後に昇格。公務員制度改革（ペンドルトン法）を実現しました。"},
+{"n": 22, "name": "グロバー・クリーブランド", "e": "C", "d": 4, "info": "第22・24代（1885〜89年、93〜97年）", "fact": "連続しない2期を務めた最初の大統領です。"},
+{"n": 23, "name": "ベンジャミン・ハリソン", "e": "C", "d": 5, "info": "第23代（1889〜93年）", "fact": "第9代ウィリアム・ハリソンの孫。クリーブランドの2期の間に挟まれています。"},
+{"n": 25, "name": "ウィリアム・マッキンリー", "e": "C", "d": 4, "info": "第25代（1897〜1901年）", "fact": "米西戦争でフィリピン・グアムを獲得。1901年に暗殺されました。"},
+{"n": 26, "name": "セオドア・ルーズベルト", "e": "P", "d": 2, "info": "第26代（1901〜09年）", "fact": "日露戦争の講和（ポーツマス条約）を仲介してノーベル平和賞。テディベアの名の由来です。"},
+{"n": 27, "name": "ウィリアム・タフト", "e": "P", "d": 4, "info": "第27代（1909〜13年）", "fact": "退任後に連邦最高裁長官。大統領と最高裁長官の両方を務めた唯一の人物です。"},
+{"n": 28, "name": "ウッドロウ・ウィルソン", "e": "P", "d": 3, "info": "第28代（1913〜21年）", "fact": "第一次世界大戦に参戦し、国際連盟を提唱しました。"},
+{"n": 29, "name": "ウォレン・ハーディング", "e": "P", "d": 4, "info": "第29代（1921〜23年）", "fact": "ワシントン海軍軍縮会議を主催。在任中に急死しました。"},
+{"n": 30, "name": "カルビン・クーリッジ", "e": "P", "d": 4, "info": "第30代（1923〜29年）", "fact": "「沈黙のカル」と呼ばれた、1920年代の好景気の時代の大統領です。"},
+{"n": 31, "name": "ハーバート・フーバー", "e": "P", "d": 4, "info": "第31代（1929〜33年）", "fact": "就任直後に世界恐慌が始まりました。"},
+{"n": 32, "name": "フランクリン・ルーズベルト", "e": "P", "d": 2, "info": "第32代（1933〜45年）", "fact": "ニューディール政策で知られ、唯一4選されました。第二次世界大戦中に死去。"},
+{"n": 33, "name": "ハリー・トルーマン", "e": "W", "d": 3, "info": "第33代（1945〜53年）", "fact": "原爆投下を決定し、戦後は冷戦の「封じ込め」政策を始めました。"},
+{"n": 34, "name": "ドワイト・アイゼンハワー", "e": "W", "d": 3, "info": "第34代（1953〜61年）", "fact": "ノルマンディー上陸作戦の連合軍最高司令官でした。"},
+{"n": 35, "name": "ジョン・F・ケネディ", "e": "W", "d": 1, "info": "第35代（1961〜63年）", "fact": "キューバ危機を乗り切り、1963年にダラスで暗殺されました。"},
+{"n": 36, "name": "リンドン・ジョンソン", "e": "W", "d": 3, "info": "第36代（1963〜69年）", "fact": "公民権法を成立させる一方、ベトナム戦争を拡大しました。"},
+{"n": 37, "name": "リチャード・ニクソン", "e": "W", "d": 2, "info": "第37代（1969〜74年）", "fact": "訪中で米中関係を開き、ウォーターゲート事件で唯一辞任した大統領です。"},
+{"n": 38, "name": "ジェラルド・フォード", "e": "W", "d": 3, "info": "第38代（1974〜77年）", "fact": "選挙を経ずに副大統領・大統領になった唯一の人物です。"},
+{"n": 39, "name": "ジミー・カーター", "e": "W", "d": 2, "info": "第39代（1977〜81年）", "fact": "キャンプ・デービッド合意を仲介。退任後にノーベル平和賞を受賞し、100歳で死去しました。"},
+{"n": 40, "name": "ロナルド・レーガン", "e": "W", "d": 2, "info": "第40代（1981〜89年）", "fact": "元俳優。冷戦終結への道を開きました。"},
+{"n": 41, "name": "ジョージ・H・W・ブッシュ", "e": "M", "d": 2, "info": "第41代（1989〜93年）", "fact": "湾岸戦争を指揮。息子のジョージ・W・ブッシュも大統領です。"},
+{"n": 42, "name": "ビル・クリントン", "e": "M", "d": 1, "info": "第42代（1993〜2001年）", "fact": "1990年代の好景気の時代の大統領。弾劾訴追されましたが無罪でした。"},
+{"n": 43, "name": "ジョージ・W・ブッシュ", "e": "M", "d": 1, "info": "第43代（2001〜09年）", "fact": "9・11同時多発テロを受け、アフガニスタン・イラク戦争を始めました。"},
+{"n": 44, "name": "バラク・オバマ", "e": "M", "d": 1, "info": "第44代（2009〜17年）", "fact": "初のアフリカ系大統領。医療保険改革（オバマケア）を実現しました。"},
+{"n": 45, "name": "ドナルド・トランプ", "e": "M", "d": 1, "info": "第45・47代（2017〜21年、2025年〜）", "fact": "不動産業者・テレビ司会者から大統領に。連続しない2期はクリーブランド以来2人目です。"},
+{"n": 46, "name": "ジョー・バイデン", "e": "M", "d": 1, "info": "第46代（2021〜25年）", "fact": "就任時78歳で当時最高齢。オバマ政権の副大統領でした。"}
+];
+const LEVELS = ["入門", "初級", "中級", "上級", "達人"];
+const ERA = {F:"建国〜南北戦争前", C:"南北戦争〜19世紀末", P:"20世紀前半", W:"戦後", M:"現代"};
+const $ = id => document.getElementById(id);
+let state = { i: 0, score: 0, answered: [], hinted: [], qs: [] };
+
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function img(n) { return "img/" + String(n).padStart(2, "0") + ".jpg"; }
+function label(p) { return p.name; }
+
+// 難易度1〜5から2人ずつ無作為に選び、易しい順に並べる。誤答は同じ時代の大統領から2人。
+function makeQuiz() {
+  const qs = [];
+  for (let d = 1; d <= 5; d++) {
+    shuffle(POOL.filter(p => p.d === d)).slice(0, 2).forEach(p => {
+      const others = shuffle(POOL.filter(x => x.e === p.e && x.n !== p.n)).slice(0, 2).map(label);
+      qs.push({ n: p.n, img: true, answer: p.name, info: p.info, hint: p.fact, d, e: p.e, choices: shuffle([p.name, ...others]) });
+    });
+  }
+  return qs;
+}
+
+function render() {
+  const i = state.i, qs = state.qs;
+  if (i >= qs.length) return renderFinal();
+  const q = qs[i];
+  $("card").hidden = false; $("final").hidden = true;
+  $("qno").textContent = i + 1;
+  $("score").textContent = state.score;
+  $("stars").textContent = "★".repeat(q.d) + "☆".repeat(5 - q.d);
+  $("barfill").style.width = (i / qs.length * 100) + "%";
+  $("lv").textContent = `難易度 ${LEVELS[q.d - 1]}`;
+  $("era").textContent = `時代 ${ERA[q.e]}`;
+  const fr = $("frame");
+  if (q.img) { fr.innerHTML = `<img src="${img(q.n)}" alt="大統領の肖像">`; $("cap").textContent = "肖像: Wikimedia Commons（パブリックドメイン）"; }
+  else { fr.innerHTML = `<div class="crest">菊<small>肖像は伝わっていません</small></div>`; $("cap").textContent = "ヒントから考えてください"; }
+  const done = state.answered[i];
+  const showHint = !q.img || state.hinted[i] || done;
+  $("hint").hidden = !showHint; $("hint").textContent = q.hint;
+  $("hintbtn").hidden = showHint;
+  const box = $("choices"); box.innerHTML = "";
+  q.choices.forEach((name, k) => {
+    const b = document.createElement("button");
+    b.className = "choice"; b.type = "button"; b.id = `c${i}_${k}`;
+    b.innerHTML = `<span class="k">${"ABC"[k]}</span><span>${name}</span>`;
+    if (done) {
+      b.disabled = true;
+      if (name === q.answer) b.classList.add("correct");
+      else if (name === done.picked) b.classList.add("wrong");
+      else b.classList.add("dim");
+    } else {
+      b.addEventListener("click", () => answer(name));
+    }
+    box.appendChild(b);
+  });
+  const r = $("result");
+  if (done) {
+    r.hidden = false; r.className = "result " + (done.ok ? "ok" : "ng");
+    $("verdict").textContent = done.ok ? "正解！" : "残念、不正解";
+    $("aname").textContent = q.answer; $("ainfo").textContent = q.info; $("afact").textContent = q.hint;
+    $("next").hidden = false;
+    $("next").textContent = i === qs.length - 1 ? "結果を見る" : "次の問題へ";
+  } else { r.hidden = true; $("next").hidden = true; }
+}
+
+function answer(name) {
+  const q = state.qs[state.i];
+  const ok = name === q.answer;
+  state.answered[state.i] = { picked: name, ok };
+  if (ok) state.score++;
+  render();
+  $("next").focus();
+}
+
+function rankText(s) {
+  if (s === 10) return "全問正解！ ホワイトハウスの歴史家レベルです。";
+  if (s >= 8) return "上級者。19世紀の大統領まで押さえています。";
+  if (s >= 6) return "なかなかのアメリカ通。19世紀後半の大統領が伸びしろです。";
+  if (s >= 4) return "現代の大統領はばっちり。20世紀前半へ広げましょう。";
+  return "まずは冷戦後の大統領と、ドル札の顔から。";
+}
+
+function renderFinal() {
+  $("card").hidden = true; $("final").hidden = false;
+  $("barfill").style.width = "100%";
+  $("qno").textContent = 10; $("score").textContent = state.score;
+  $("fscore").textContent = state.score;
+  $("frank").textContent = rankText(state.score);
+  const ul = $("review"); ul.innerHTML = "";
+  state.qs.forEach((q, i) => {
+    const a = state.answered[i];
+    const li = document.createElement("li");
+    li.innerHTML = `<span>${i + 1}.</span><span class="mk ${a.ok ? "ok" : "ng"}">${a.ok ? "○" : "×"}</span><span>${q.answer} <span class="ans">${q.info}${a.ok ? "" : "／あなたの回答: " + a.picked}</span></span>`;
+    ul.appendChild(li);
+  });
+}
+
+$("hintbtn").addEventListener("click", () => { state.hinted[state.i] = true; render(); });
+$("next").addEventListener("click", () => { state.i++; render(); window.scrollTo({ top: 0 }); });
+$("again").addEventListener("click", () => { state = { i: 0, score: 0, answered: [], hinted: [], qs: makeQuiz() }; render(); });
+
+function start(saved) {
+  if (saved && saved.qs && saved.qs.length === 10) state = saved;
+  else state.qs = makeQuiz();
+  render();
+}
+window.claude?.hot?.snapshot?.(() => state);
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+</script>
+
+</body>
+</html>

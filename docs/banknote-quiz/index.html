@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="author" content="aNo研">
+<title>歴代お札クイズ</title>
+<style>body{margin:0} img{max-width:100%} [hidden]{display:none!important}</style>
+</head>
+<body>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+/* Layout: one card per question, portrait left / question and choices right, stacking on phones.
+   Palette: 紙幣の透かし入り用紙を思わせる淡い生成りと、日本銀行券の深緑インク。 */
+:root {
+  --bg: #eeeee6;
+  --paper: #fbfbf5;
+  --fg: #1f2420;
+  --muted: #68706a;
+  --line: #d2d6cb;
+  --accent: #1f5a3c;
+  --accent-ink: #f3fbf5;
+  --gold: #9c7a2e;
+  --good: #1f6b3a;
+  --good-bg: #e6f2e9;
+  --bad: #9a2a1f;
+  --bad-bg: #f8e7e3;
+  --font-display: "Shippori Mincho", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  --font-body: "Zen Kaku Gothic New", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #171b18; --paper: #222724; --fg: #e8ece7; --muted: #a0a89f; --line: #38403a;
+    --accent: #7fcf9d; --accent-ink: #0f1f15; --gold: #d2b25f;
+    --good: #7fcf97; --good-bg: #1d3326; --bad: #ef8a7c; --bad-bg: #3a211d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #171b18; --paper: #222724; --fg: #e8ece7; --muted: #a0a89f; --line: #38403a;
+  --accent: #7fcf9d; --accent-ink: #0f1f15; --gold: #d2b25f;
+  --good: #7fcf97; --good-bg: #1d3326; --bad: #ef8a7c; --bad-bg: #3a211d;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.7;
+  padding-block: 28px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 860px; margin: 0 auto; display: grid; gap: 20px; }
+header { display: grid; gap: 4px; }
+.eyebrow { font-size: 12px; letter-spacing: .18em; color: var(--muted); text-transform: uppercase; }
+h1 { font-family: var(--font-display); font-weight: 800; font-size: clamp(26px, 5vw, 38px); line-height: 1.25; margin: 0; text-wrap: balance; }
+h1 small { display: block; font-size: .5em; font-weight: 500; color: var(--muted); margin-top: 4px; }
+.status { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.status b { color: var(--fg); font-weight: 700; }
+.bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+@media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
+.stars { letter-spacing: .1em; color: var(--gold); }
+.card { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 22px; display: grid; grid-template-columns: minmax(0, 240px) minmax(0, 1fr); gap: 22px; }
+@media (max-width: 600px) { .card { grid-template-columns: 1fr; } }
+.photo { display: grid; gap: 8px; margin: 0; }
+.photo .frame { width: 100%; max-width: 240px; aspect-ratio: 3 / 4; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); margin: 0 auto; overflow: hidden; }
+.photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo figcaption { font-size: 12px; color: var(--muted); text-align: center; }
+.q { display: grid; gap: 14px; align-content: start; min-width: 0; }
+.q h2 { font-family: var(--font-display); font-size: 22px; margin: 0; font-weight: 700; }
+.q .lv { font-size: 13px; color: var(--muted); display: flex; gap: 14px; flex-wrap: wrap; }
+.q .who { font-family: var(--font-display); font-size: 18px; font-weight: 700; color: var(--accent); }
+.hint { font-size: 15px; padding: 10px 14px; border-radius: 8px; background: var(--bg); border-left: 4px solid var(--gold); }
+.hintbtn { font: inherit; font-size: 14px; cursor: pointer; background: transparent; color: var(--accent); border: 1.5px dashed var(--accent); border-radius: 8px; padding: 8px 14px; justify-self: start; }
+.hintbtn:focus-visible, .btn:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
+.choices { display: grid; gap: 10px; }
+.choice { font: inherit; text-align: left; cursor: pointer; width: 100%; background: var(--paper); color: var(--fg); border: 1.5px solid var(--line); border-radius: 8px; padding: 12px 14px; display: flex; gap: 12px; align-items: center; font-size: 17px; }
+.choice .k { font-family: var(--font-display); font-weight: 700; color: var(--accent); width: 1.4em; flex: none; }
+.choice:hover:not(:disabled) { border-color: var(--accent); }
+.choice:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.choice:disabled { cursor: default; }
+.choice.correct { background: var(--good-bg); border-color: var(--good); }
+.choice.wrong { background: var(--bad-bg); border-color: var(--bad); }
+.choice.dim { opacity: .55; }
+.result { display: grid; gap: 6px; padding: 12px 14px; border-radius: 8px; border-left: 4px solid var(--line); background: var(--bg); font-size: 15px; }
+.result.ok { border-left-color: var(--good); }
+.result.ng { border-left-color: var(--bad); }
+.result .verdict { font-family: var(--font-display); font-weight: 700; font-size: 18px; }
+.result.ok .verdict { color: var(--good); }
+.result.ng .verdict { color: var(--bad); }
+.result .name { font-weight: 700; }
+.btn { font: inherit; font-weight: 700; cursor: pointer; background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 8px; padding: 12px 22px; font-size: 16px; justify-self: start; }
+.btn.ghost { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
+.final { display: grid; gap: 16px; background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 26px 22px; }
+.final .score { font-family: var(--font-display); font-size: clamp(40px, 10vw, 64px); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.final .score span { font-size: .4em; color: var(--muted); font-weight: 500; }
+.final .rank { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--accent); }
+.review { display: grid; gap: 6px; font-size: 14px; list-style: none; padding: 0; margin: 0; }
+.review li { display: grid; grid-template-columns: 1.6em 1.2em 1fr; gap: 8px; align-items: baseline; font-variant-numeric: tabular-nums; }
+.review .mk { font-weight: 700; }
+.review .ok { color: var(--good); } .review .ng { color: var(--bad); }
+.review .ans { color: var(--muted); }
+footer { font-size: 12px; color: var(--muted); line-height: 1.6; }
+footer a { color: inherit; }
+footer .sig { font-weight: 700; color: var(--fg); font-size: 13px; margin-bottom: 4px; }
+footer details { margin-top: 6px; }
+footer summary { cursor: pointer; }
+footer ul { padding-left: 1.2em; margin: 6px 0 0; }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Nihon Shihei Shōzō Quiz</div>
+    <h1>歴代お札クイズ<small>お札の肖像になった人物を当てよう。3択・全10問（出題は毎回変わります）</small></h1>
+  </header>
+  <div class="status" id="status">
+    <span>問 <b id="qno">1</b> / 10</span>
+    <span>正解 <b id="score">0</b></span>
+    <span>難易度 <span class="stars" id="stars">★</span></span>
+  </div>
+  <div class="bar"><i id="barfill"></i></div>
+
+  <section class="card" id="card">
+    <figure class="photo">
+      <div class="frame"><img id="photo" src="img/fukuzawa.jpg" alt="肖像"></div>
+      <figcaption>肖像: Wikimedia Commons（パブリックドメイン）</figcaption>
+    </figure>
+    <div class="q">
+      <h2 id="qtext">このお札の肖像はだれでしょう？</h2>
+      <div class="lv"><span id="lv"></span><span id="era"></span></div>
+      <div class="who" id="who" hidden></div>
+      <div class="hint" id="hint" hidden></div>
+      <button class="hintbtn" id="hintbtn" type="button" hidden>ヒントを見る</button>
+      <div class="choices" id="choices"></div>
+      <div class="result" id="result" hidden>
+        <div class="verdict" id="verdict"></div>
+        <div><span class="name" id="aname"></span>　<span id="ainfo"></span></div>
+        <div id="afact"></div>
+      </div>
+      <button class="btn" id="next" type="button" hidden>次の問題へ</button>
+    </div>
+  </section>
+
+  <section class="final" id="final" hidden>
+    <div class="eyebrow">結果</div>
+    <div class="score"><span id="fscore">0</span><span> / 10 問正解</span></div>
+    <div class="rank" id="frank"></div>
+    <ul class="review" id="review"></ul>
+    <button class="btn ghost" id="again" type="button">もう一度挑戦する</button>
+  </section>
+
+  <footer>
+    <div class="sig">制作: aNo研</div>
+    出題は明治以降の日本銀行券・政府紙幣に肖像として描かれた人物です。券面そのものではなく、各人物の写真・肖像画（Wikimedia Commons のパブリックドメイン画像）を表示しています。発行年は各券種の発行開始年です。
+    <details><summary>画像の出典一覧</summary><ul>
+<li>福澤諭吉: <a href="https://commons.wikimedia.org/wiki/File:Fukuzawa_Yukichi_1891.jpg" target="_blank" rel="noopener">Fukuzawa_Yukichi_1891.jpg</a>（Fukuzawa Research Center、Public domain）</li>
+<li>野口英世: <a href="https://commons.wikimedia.org/wiki/File:Noguchi_Hideyo.jpg" target="_blank" rel="noopener">Noguchi_Hideyo.jpg</a>（Unknown author、Public domain）</li>
+<li>樋口一葉: <a href="https://commons.wikimedia.org/wiki/File:Higuchi_Ichiyou.png" target="_blank" rel="noopener">Higuchi_Ichiyou.png</a>（Unknown author、Public domain）</li>
+<li>渋沢栄一: <a href="https://commons.wikimedia.org/wiki/File:Eiichi_Shibusawa.jpg" target="_blank" rel="noopener">Eiichi_Shibusawa.jpg</a>（Unknown author、Public domain）</li>
+<li>北里柴三郎: <a href="https://commons.wikimedia.org/wiki/File:Shibasabur%C5%8D_Kitasato_1910.jpg" target="_blank" rel="noopener">Shibasaburō_Kitasato_1910.jpg</a>（北里研究所、Public domain）</li>
+<li>津田梅子: <a href="https://commons.wikimedia.org/wiki/File:Tsuda_Umeko.jpg" target="_blank" rel="noopener">Tsuda_Umeko.jpg</a>（Unknown author、Public domain）</li>
+<li>夏目漱石: <a href="https://commons.wikimedia.org/wiki/File:Natsume_Soseki_photo.jpg" target="_blank" rel="noopener">Natsume_Soseki_photo.jpg</a>（Ogawa Kazumasa、Public domain）</li>
+<li>新渡戸稲造: <a href="https://commons.wikimedia.org/wiki/File:Monsieur_Inaz%C5%8D_Nitobe.jpg" target="_blank" rel="noopener">Monsieur_Inazō_Nitobe.jpg</a>（Auguste Léon、Public domain）</li>
+<li>聖徳太子: <a href="https://commons.wikimedia.org/wiki/File:Sh%C5%8Dtoku_Taishi_Sh%C5%8Dmanky%C5%8D_K%C5%8Dsan.jpg" target="_blank" rel="noopener">Shōtoku_Taishi_Shōmankyō_Kōsan.jpg</a>（Unknown author、Public domain）</li>
+<li>紫式部: <a href="https://commons.wikimedia.org/wiki/File:Tosa_Mitsuoki_001.jpg" target="_blank" rel="noopener">Tosa_Mitsuoki_001.jpg</a>（Tosa Mitsuoki (1617-1691)、Public domain）</li>
+<li>岩倉具視: <a href="https://commons.wikimedia.org/wiki/File:IWAKURA_Tomomi.jpg" target="_blank" rel="noopener">IWAKURA_Tomomi.jpg</a>（Unknown author、Public domain）</li>
+<li>板垣退助: <a href="https://commons.wikimedia.org/wiki/File:ITAGAKI_Taisuke.jpg" target="_blank" rel="noopener">ITAGAKI_Taisuke.jpg</a>（Unknown author、Public domain）</li>
+<li>高橋是清: <a href="https://commons.wikimedia.org/wiki/File:Korekiyo_Takahashi_2.jpg" target="_blank" rel="noopener">Korekiyo_Takahashi_2.jpg</a>（Unknown author、Public domain）</li>
+<li>伊藤博文: <a href="https://commons.wikimedia.org/wiki/File:IT%C5%8C_Hirobumi.jpg" target="_blank" rel="noopener">ITŌ_Hirobumi.jpg</a>（Unknown author、Public domain）</li>
+<li>菅原道真: <a href="https://commons.wikimedia.org/wiki/File:%E6%9D%9F%E5%B8%AF%E5%A4%A9%E7%A5%9E%E5%83%8F.png" target="_blank" rel="noopener">束帯天神像.png</a>（Unknown author、Public domain）</li>
+<li>和気清麻呂: <a href="https://commons.wikimedia.org/wiki/File:Wake_no_Kiyomaro.png" target="_blank" rel="noopener">Wake_no_Kiyomaro.png</a>（Yoshitoshi、Public domain）</li>
+<li>二宮尊徳: <a href="https://commons.wikimedia.org/wiki/File:Ninomiya-Sontoku.jpg" target="_blank" rel="noopener">Ninomiya-Sontoku.jpg</a>（岡本秋暉（（1807-1862）、Public domain）</li>
+<li>日本武尊: <a href="https://commons.wikimedia.org/wiki/File:Yamato_Takeru(bronze_statue,Osaka)01.jpg" target="_blank" rel="noopener">Yamato_Takeru(bronze_statue,Osaka)01.jpg</a>（ja:user:田英、Public domain）</li>
+<li>武内宿禰: <a href="https://commons.wikimedia.org/wiki/File:Takeshiuchi_Sukune.jpg" target="_blank" rel="noopener">Takeshiuchi_Sukune.jpg</a>（作者不詳、Public domain）</li>
+<li>神功皇后: <a href="https://commons.wikimedia.org/wiki/File:Jing%C5%AB_K%C5%8Dg%C5%8D.jpg" target="_blank" rel="noopener">Jingū_Kōgō.jpg</a>（一猛斎芳虎 aka 歌川芳虎 (Utagawa Yoshitora)、Public domain）</li>
+<li>藤原鎌足: <a href="https://commons.wikimedia.org/wiki/File:Fujiwara-Kamatari.jpg" target="_blank" rel="noopener">Fujiwara-Kamatari.jpg</a>（Kikuchi Yōsai、Public domain）</li>
+    </ul></details>
+  </footer>
+</div>
+
+<script>
+const POOL = [
+{"id": "fukuzawa", "name": "福澤諭吉", "e": "R", "d": 1, "main": "一万円札（1984年・2004年）", "others": [], "fact": "慶應義塾の創設者。『学問のすゝめ』で知られ、一万円札の肖像を40年にわたって務めました。"},
+{"id": "noguchi", "name": "野口英世", "e": "R", "d": 1, "main": "千円札（2004年）", "others": [], "fact": "黄熱病や梅毒の研究で知られる細菌学者。ガーナで研究中に黄熱病に倒れました。"},
+{"id": "higuchi", "name": "樋口一葉", "e": "R", "d": 1, "main": "五千円札（2004年）", "others": [], "fact": "『たけくらべ』『にごりえ』の作家。日本銀行券の表面の肖像では初めての女性です。"},
+{"id": "shibusawa", "name": "渋沢栄一", "e": "R", "d": 1, "main": "一万円札（2024年）", "others": [], "fact": "「日本資本主義の父」。第一国立銀行など約500の企業の設立に関わりました。"},
+{"id": "kitasato", "name": "北里柴三郎", "e": "R", "d": 1, "main": "千円札（2024年）", "others": [], "fact": "破傷風菌の純粋培養に成功し、血清療法を確立した細菌学者です。"},
+{"id": "tsuda", "name": "津田梅子", "e": "R", "d": 1, "main": "五千円札（2024年）", "others": [], "fact": "6歳で岩倉使節団に同行して留学し、のちに女子英学塾（現在の津田塾大学）を創設しました。"},
+{"id": "natsume", "name": "夏目漱石", "e": "R", "d": 2, "main": "千円札（1984年）", "others": [], "fact": "『吾輩は猫である』『こころ』の作家。千円札の肖像を20年務めました。"},
+{"id": "nitobe", "name": "新渡戸稲造", "e": "R", "d": 2, "main": "五千円札（1984年）", "others": [], "fact": "英文で『武士道』を著し、国際連盟の事務次長も務めました。"},
+{"id": "shotoku", "name": "聖徳太子", "e": "S", "d": 2, "main": "一万円札（1958年）", "others": ["五千円札（1957年）", "千円札（1950年）", "百円札（1930年〜）"], "fact": "百円札から一万円札まで計7回登場し、紙幣の肖像としては最多です。"},
+{"id": "murasaki", "name": "紫式部", "e": "R", "d": 2, "main": "二千円札（2000年）", "others": [], "fact": "『源氏物語』の作者。沖縄サミットを記念した二千円札の裏面に、源氏物語絵巻とともに描かれています。"},
+{"id": "iwakura", "name": "岩倉具視", "e": "S", "d": 3, "main": "五百円札（1951年・1969年）", "others": [], "fact": "岩倉使節団の全権大使として欧米を回った公家出身の政治家です。"},
+{"id": "itagaki", "name": "板垣退助", "e": "S", "d": 3, "main": "百円札（1953年）", "others": ["五十銭政府紙幣（1948年）"], "fact": "自由民権運動の指導者。「板垣死すとも自由は死せず」の言葉で知られます。"},
+{"id": "takahashi", "name": "高橋是清", "e": "S", "d": 3, "main": "五十円札（1951年）", "others": [], "fact": "蔵相として昭和恐慌からの脱出を主導し、二・二六事件で暗殺されました。総理大臣も務めています。"},
+{"id": "ito", "name": "伊藤博文", "e": "S", "d": 3, "main": "千円札（1963年）", "others": [], "fact": "初代内閣総理大臣。この千円札は1984年に夏目漱石へ切り替わりました。"},
+{"id": "sugawara", "name": "菅原道真", "e": "M", "d": 4, "main": "五円札（1888年・1930年など）", "others": ["二十円札（1917年）"], "fact": "学問の神様として天満宮に祀られる平安時代の学者・政治家です。"},
+{"id": "wake", "name": "和気清麻呂", "e": "M", "d": 4, "main": "十円札（1890年〜1945年）", "others": [], "fact": "宇佐八幡宮の神託を伝えて道鏡の皇位継承を阻んだ奈良時代の貴族。半世紀以上、十円札の顔でした。"},
+{"id": "ninomiya", "name": "二宮尊徳", "e": "S", "d": 4, "main": "一円札（1946年）", "others": [], "fact": "薪を背負って本を読む像で知られる農政家。戦後最初の新円の一円札に描かれました。"},
+{"id": "yamato", "name": "日本武尊", "e": "M", "d": 4, "main": "千円札（1945年）", "others": [], "fact": "戦前に唯一発行された千円札の肖像。終戦直後に発行され、半年ほどで失効しました。"},
+{"id": "takeuchi", "name": "武内宿禰", "e": "M", "d": 5, "main": "一円札（1889年・1943年）", "others": ["五円札（1899年）", "二百円札（1927年）"], "fact": "5代の天皇に仕えたと伝えられる伝説の忠臣。明治から昭和まで繰り返し紙幣に描かれました。"},
+{"id": "jingu", "name": "神功皇后", "e": "M", "d": 5, "main": "改造紙幣 一円・五円・十円（1881年）", "others": [], "fact": "日本の紙幣で初めて肖像が描かれた人物。お雇い外国人キヨッソーネが西洋風の顔立ちで描きました。"},
+{"id": "kamatari", "name": "藤原鎌足", "e": "M", "d": 5, "main": "二十円札（1891年）", "others": ["百円札（1891年）", "二百円札（1945年）"], "fact": "大化の改新の中心人物で、藤原氏の祖です。"}
+];
+const LEVELS = ["入門", "初級", "中級", "上級", "達人"];
+const ERA = {R:"1984年以降", S:"戦後（1946〜1969年）", M:"明治〜戦前"};
+const $ = id => document.getElementById(id);
+let state = { i: 0, score: 0, answered: [], hinted: [], qs: [] };
+
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function allNotes(p) { return [p.main, ...p.others]; }
+
+// 難易度1〜5から2人ずつ無作為に選び、易しい順に並べる。
+// 出題形式は「この肖像はだれ？」（誤答は同時代の人物）と「この人物のお札はどれ？」（誤答は他の人物の券種）を無作為に混ぜる。
+function makeQuiz() {
+  const qs = [];
+  for (let d = 1; d <= 5; d++) {
+    shuffle(POOL.filter(p => p.d === d)).slice(0, 2).forEach(p => {
+      const type = Math.random() < 0.5 ? "who" : "note";
+      let answer, choices;
+      if (type === "who") {
+        answer = p.name;
+        choices = shuffle([p.name, ...shuffle(POOL.filter(x => x.e === p.e && x.id !== p.id)).slice(0, 2).map(x => x.name)]);
+      } else {
+        answer = p.main;
+        const mine = new Set(allNotes(p));
+        const pool = shuffle(POOL.filter(x => x.id !== p.id).map(x => x.main).filter(n => !mine.has(n)));
+        choices = shuffle([p.main, ...pool.slice(0, 2)]);
+      }
+      qs.push({ id: p.id, name: p.name, type, answer, choices, d, e: p.e, main: p.main, notes: allNotes(p).join("、"), fact: p.fact });
+    });
+  }
+  return qs;
+}
+
+function render() {
+  const i = state.i, qs = state.qs;
+  if (i >= qs.length) return renderFinal();
+  const q = qs[i];
+  $("card").hidden = false; $("final").hidden = true;
+  $("qno").textContent = i + 1; $("score").textContent = state.score;
+  $("stars").textContent = "★".repeat(q.d) + "☆".repeat(5 - q.d);
+  $("barfill").style.width = (i / qs.length * 100) + "%";
+  $("lv").textContent = `難易度 ${LEVELS[q.d - 1]}`;
+  $("era").textContent = ERA[q.e];
+  $("photo").src = "img/" + q.id + ".jpg";
+  const done = state.answered[i];
+  if (q.type === "who") {
+    $("qtext").textContent = "このお札の肖像はだれでしょう？";
+    $("who").hidden = true;
+    const showHint = state.hinted[i] || done;
+    $("hint").hidden = !showHint; $("hint").textContent = "ヒント: " + q.main + "の肖像";
+    $("hintbtn").hidden = showHint;
+  } else {
+    $("qtext").textContent = "この人物が描かれたお札はどれでしょう？";
+    $("who").hidden = false; $("who").textContent = q.name;
+    $("hint").hidden = true; $("hintbtn").hidden = true;
+  }
+  const box = $("choices"); box.innerHTML = "";
+  q.choices.forEach((name, k) => {
+    const b = document.createElement("button");
+    b.className = "choice"; b.type = "button"; b.id = `c${i}_${k}`;
+    b.innerHTML = `<span class="k">${"ABC"[k]}</span><span>${name}</span>`;
+    if (done) {
+      b.disabled = true;
+      if (name === q.answer) b.classList.add("correct");
+      else if (name === done.picked) b.classList.add("wrong");
+      else b.classList.add("dim");
+    } else b.addEventListener("click", () => answer(name));
+    box.appendChild(b);
+  });
+  const r = $("result");
+  if (done) {
+    r.hidden = false; r.className = "result " + (done.ok ? "ok" : "ng");
+    $("verdict").textContent = done.ok ? "正解！" : "残念、不正解";
+    $("aname").textContent = q.name; $("ainfo").textContent = q.notes; $("afact").textContent = q.fact;
+    $("next").hidden = false;
+    $("next").textContent = i === qs.length - 1 ? "結果を見る" : "次の問題へ";
+  } else { r.hidden = true; $("next").hidden = true; }
+}
+
+function answer(name) {
+  const q = state.qs[state.i];
+  const ok = name === q.answer;
+  state.answered[state.i] = { picked: name, ok };
+  if (ok) state.score++;
+  render(); $("next").focus();
+}
+
+function rankText(s) {
+  if (s === 10) return "全問正解！ 国立印刷局の学芸員レベルです。";
+  if (s >= 8) return "上級者。戦前の紙幣まで押さえています。";
+  if (s >= 6) return "なかなかの紙幣通。明治〜戦前の肖像が伸びしろです。";
+  if (s >= 4) return "現行・近年のお札はばっちり。戦後の百円札・五百円札へ。";
+  return "まずは今の財布に入っているお札の顔から。";
+}
+
+function renderFinal() {
+  $("card").hidden = true; $("final").hidden = false;
+  $("barfill").style.width = "100%";
+  $("qno").textContent = 10; $("score").textContent = state.score;
+  $("fscore").textContent = state.score; $("frank").textContent = rankText(state.score);
+  const ul = $("review"); ul.innerHTML = "";
+  state.qs.forEach((q, i) => {
+    const a = state.answered[i];
+    const li = document.createElement("li");
+    li.innerHTML = `<span>${i + 1}.</span><span class="mk ${a.ok ? "ok" : "ng"}">${a.ok ? "○" : "×"}</span><span>${q.name} <span class="ans">${q.main}${a.ok ? "" : "／あなたの回答: " + a.picked}</span></span>`;
+    ul.appendChild(li);
+  });
+}
+
+$("hintbtn").addEventListener("click", () => { state.hinted[state.i] = true; render(); });
+$("next").addEventListener("click", () => { state.i++; render(); window.scrollTo({ top: 0 }); });
+$("again").addEventListener("click", () => { state = { i: 0, score: 0, answered: [], hinted: [], qs: makeQuiz() }; render(); });
+
+function start(saved) {
+  if (saved && saved.qs && saved.qs.length === 10) state = saved;
+  else state.qs = makeQuiz();
+  render();
+}
+window.claude?.hot?.snapshot?.(() => state);
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+</script>
+
+</body>
+</html>

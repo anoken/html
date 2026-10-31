@@ -1,0 +1,178 @@
+{
+ "fukuzawa": {
+  "name": "福澤諭吉",
+  "file": "Fukuzawa_Yukichi_1891.jpg",
+  "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/db/Fukuzawa_Yukichi_1891.jpg/500px-Fukuzawa_Yukichi_1891.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+  "desc": "https://commons.wikimedia.org/wiki/File:Fukuzawa_Yukichi_1891.jpg",
+  "license": "Public domain",
+  "artist": "Fukuzawa Research Center"
+ },
+ "noguchi": {
+  "name": "野口英世",
+  "file": "Noguchi_Hideyo.jpg",
+  "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3e/Noguchi_Hideyo.jpg/500px-Noguchi_Hideyo.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+  "desc": "https://commons.wikimedia.org/wiki/File:Noguchi_Hideyo.jpg",
+  "license": "Public domain",
+  "artist": "Unknown author"
+ },
+ "higuchi": {
+  "name": "樋口一葉",
+  "file": "Higuchi_Ichiyou.png",
+  "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6e/Higuchi_Ichiyou.png/500px-Higuchi_Ichiyou.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+  "desc": "https://commons.wikimedia.org/wiki/File:Higuchi_Ichiyou.png",
+  "license": "Public domain",
+  "artist": "Unknown author"
+ },
+ "shibusawa": {
+  "name": "渋沢栄一",
+  "file": "Eiichi_Shibusawa.jpg",
+  "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/38/Eiichi_Shibusawa.jpg/500px-Eiichi_Shibusawa.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+  "desc": "https://commons.wikimedia.org/wiki/File:Eiichi_Shibusawa.jpg",
+  "license": "Public domain",
+  "artist": "Unknown author"
+ },
+ "kitasato": {
+  "name": "北里柴三郎",
+  "file": "Shibasaburō_Kitasato_1910.jpg",
+  "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3c/Shibasabur%C5%8D_Kitasato_1910.jpg/500px-Shibasabur%C5%8D_Kitasato_1910.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+  "desc": "https://commons.wikimedia.org/wiki/File:Shibasabur%C5%8D_Kitasato_1910.jpg",
+  "license": "Public domain",
+  "artist": "北里研究所"
+ },
+ "tsuda": {
+  "name": "津田梅子",
+  "file": "Tsuda_Umeko.jpg",
+  "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/80/Tsuda_Umeko.jpg/500px-Tsuda_Umeko.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+  "desc": "https://commons.wikimedia.org/wiki/File:Tsuda_Umeko.jpg",
+  "license": "Public domain",
+  "artist": "Unknown author"
+ },
+ "natsume": {
+  "name": "夏目漱石",
+  "file": "Natsume_Soseki_photo.jpg",
+  "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/17/Natsume_Soseki_photo.jpg/500px-Natsume_Soseki_photo.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+  "desc": "https://commons.wikimedia.org/wiki/File:Natsume_Soseki_photo.jpg",
+  "license": "Public domain",
+  "artist": "Ogawa Kazumasa"
+ },
+ "nitobe": {
+  "name": "新渡戸稲造",
+  "file": "Monsieur_Inazō_Nitobe.jpg",
+  "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f2/Monsieur_Inaz%C5%8D_Nitobe.jpg/500px-Monsieur_Inaz%C5%8D_Nitobe.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+  "desc": "https://commons.wikimedia.org/wiki/File:Monsieur_Inaz%C5%8D_Nitobe.jpg",
+  "license": "Public domain",
+  "artist": "Auguste Léon"
+ },
+ "shotoku": {
+  "name": "聖徳太子",
+  "file": "Shōtoku_Taishi_Shōmankyō_Kōsan.jpg",
+  "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/45/Sh%C5%8Dtoku_Taishi_Sh%C5%8Dmanky%C5%8D_K%C5%8Dsan.jpg/500px-Sh%C5%8Dtoku_Taishi_Sh%C5%8Dmanky%C5%8D_K%C5%8Dsan.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+  "desc": "https://commons.wikimedia.org/wiki/File:Sh%C5%8Dtoku_Taishi_Sh%C5%8Dmanky%C5%8D_K%C5%8Dsan.jpg",
+  "license": "Public domain",
+  "artist": "Unknown author"
+ },
+ "murasaki": {
+  "name": "紫式部",
+  "file": "Tosa_Mitsuoki_001.jpg",
+  "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a6/Tosa_Mitsuoki_001.jpg/500px-Tosa_Mitsuoki_001.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+  "desc": "https://commons.wikimedia.org/wiki/File:Tosa_Mitsuoki_001.jpg",
+  "license": "Public domain",
+  "artist": "Tosa Mitsuoki (1617-1691)"
+ },
+ "iwakura": {
+  "name": "岩倉具視",
+  "file": "IWAKURA_Tomomi.jpg",
+  "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/35/IWAKURA_Tomomi.jpg/500px-IWAKURA_Tomomi.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+  "desc": "https://commons.wikimedia.org/wiki/File:IWAKURA_Tomomi.jpg",
+  "license": "Public domain",
+  "artist": "Unknown author"
+ },
+ "itagaki": {
+  "name": "板垣退助",
+  "file": "ITAGAKI_Taisuke.jpg",
+  "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/26/ITAGAKI_Taisuke.jpg/500px-ITAGAKI_Taisuke.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+  "desc": "https://commons.wikimedia.org/wiki/File:ITAGAKI_Taisuke.jpg",
+  "license": "Public domain",
+  "artist": "Unknown author"
+ },
+ "takahashi": {
+  "name": "高橋是清",
+  "file": "Korekiyo_Takahashi_2.jpg",
+  "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/86/Korekiyo_Takahashi_2.jpg/500px-Korekiyo_Takahashi_2.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+  "desc": "https://commons.wikimedia.org/wiki/File:Korekiyo_Takahashi_2.jpg",
+  "license": "Public domain",
+  "artist": "Unknown author"
+ },
+ "ito": {
+  "name": "伊藤博文",
+  "file": "ITŌ_Hirobumi.jpg",
+  "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7d/IT%C5%8C_Hirobumi.jpg/500px-IT%C5%8C_Hirobumi.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+  "desc": "https://commons.wikimedia.org/wiki/File:IT%C5%8C_Hirobumi.jpg",
+  "license": "Public domain",
+  "artist": "Unknown author"
+ },
+ "sugawara": {
+  "name": "菅原道真",
+  "file": "束帯天神像.png",
+  "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1e/%E6%9D%9F%E5%B8%AF%E5%A4%A9%E7%A5%9E%E5%83%8F.png/500px-%E6%9D%9F%E5%B8%AF%E5%A4%A9%E7%A5%9E%E5%83%8F.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+  "desc": "https://commons.wikimedia.org/wiki/File:%E6%9D%9F%E5%B8%AF%E5%A4%A9%E7%A5%9E%E5%83%8F.png",
+  "license": "Public domain",
+  "artist": "Unknown author"
+ },
+ "wake": {
+  "name": "和気清麻呂",
+  "file": "Wake_no_Kiyomaro.png",
+  "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9d/Wake_no_Kiyomaro.png/500px-Wake_no_Kiyomaro.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+  "desc": "https://commons.wikimedia.org/wiki/File:Wake_no_Kiyomaro.png",
+  "license": "Public domain",
+  "artist": "Yoshitoshi"
+ },
+ "ninomiya": {
+  "name": "二宮尊徳",
+  "file": "Ninomiya-Sontoku.jpg",
+  "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/29/Ninomiya-Sontoku.jpg/500px-Ninomiya-Sontoku.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+  "desc": "https://commons.wikimedia.org/wiki/File:Ninomiya-Sontoku.jpg",
+  "license": "Public domain",
+  "artist": "岡本秋暉（（1807-1862）"
+ },
+ "yamato": {
+  "name": "日本武尊",
+  "file": "Yamato_Takeru(bronze_statue,Osaka)01.jpg",
+  "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3e/Yamato_Takeru%28bronze_statue%2COsaka%2901.jpg/500px-Yamato_Takeru%28bronze_statue%2COsaka%2901.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+  "desc": "https://commons.wikimedia.org/wiki/File:Yamato_Takeru(bronze_statue,Osaka)01.jpg",
+  "license": "Public domain",
+  "artist": "ja:user:田英"
+ },
+ "takeuchi": {
+  "name": "武内宿禰",
+  "file": "Takeshiuchi_Sukune.jpg",
+  "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3f/Takeshiuchi_Sukune.jpg/500px-Takeshiuchi_Sukune.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+  "desc": "https://commons.wikimedia.org/wiki/File:Takeshiuchi_Sukune.jpg",
+  "license": "Public domain",
+  "artist": ""
+ },
+ "jingu": {
+  "name": "神功皇后",
+  "file": "Jingū_Kōgō.jpg",
+  "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/50/Jing%C5%AB_K%C5%8Dg%C5%8D.jpg/500px-Jing%C5%AB_K%C5%8Dg%C5%8D.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+  "desc": "https://commons.wikimedia.org/wiki/File:Jing%C5%AB_K%C5%8Dg%C5%8D.jpg",
+  "license": "Public domain",
+  "artist": "一猛斎芳虎 aka 歌川芳虎 (Utagawa Yoshitora)"
+ },
+ "kamatari": {
+  "name": "藤原鎌足",
+  "file": "Fujiwara-Kamatari.jpg",
+  "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d6/Fujiwara-Kamatari.jpg/500px-Fujiwara-Kamatari.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+  "desc": "https://commons.wikimedia.org/wiki/File:Fujiwara-Kamatari.jpg",
+  "license": "Public domain",
+  "artist": "Kikuchi Yōsai"
+ },
+ "daikoku": {
+  "name": "大黒天",
+  "file": "Mahakala-Dharmapala.jpg",
+  "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ed/Mahakala-Dharmapala.jpg/500px-Mahakala-Dharmapala.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+  "desc": "https://commons.wikimedia.org/wiki/File:Mahakala-Dharmapala.jpg",
+  "license": "CC BY-SA 3.0",
+  "artist": "Rinero"
+ }
+}

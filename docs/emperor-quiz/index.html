@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="author" content="aNo研">
+<title>歴代天皇クイズ</title>
+<style>body{margin:0} img{max-width:100%} [hidden]{display:none!important}</style>
+</head>
+<body>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+/* Layout: one card per question, portrait (or a crest placeholder) left / hint and choices right, stacking on phones.
+   Palette: 和紙の生成りと、御簾・束帯を思わせる深い紫。 */
+:root {
+  --bg: #f1eee6;
+  --paper: #fcfbf7;
+  --fg: #221f24;
+  --muted: #6e6872;
+  --line: #d9d3cc;
+  --accent: #5a2d82;
+  --accent-ink: #f9f5ff;
+  --gold: #a8893a;
+  --good: #1f6b3a;
+  --good-bg: #e6f2e9;
+  --bad: #9a2a1f;
+  --bad-bg: #f8e7e3;
+  --font-display: "Shippori Mincho", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  --font-body: "Zen Kaku Gothic New", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #191720; --paper: #24212b; --fg: #ebe6ef; --muted: #a79fae; --line: #3b3644;
+    --accent: #b48ae0; --accent-ink: #1a1222; --gold: #d2b25f;
+    --good: #7fcf97; --good-bg: #1d3326; --bad: #ef8a7c; --bad-bg: #3a211d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #191720; --paper: #24212b; --fg: #ebe6ef; --muted: #a79fae; --line: #3b3644;
+  --accent: #b48ae0; --accent-ink: #1a1222; --gold: #d2b25f;
+  --good: #7fcf97; --good-bg: #1d3326; --bad: #ef8a7c; --bad-bg: #3a211d;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.7;
+  padding-block: 28px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 860px; margin: 0 auto; display: grid; gap: 20px; }
+header { display: grid; gap: 4px; }
+.eyebrow { font-size: 12px; letter-spacing: .18em; color: var(--muted); text-transform: uppercase; }
+h1 { font-family: var(--font-display); font-weight: 800; font-size: clamp(26px, 5vw, 38px); line-height: 1.25; margin: 0; text-wrap: balance; }
+h1 small { display: block; font-size: .5em; font-weight: 500; color: var(--muted); margin-top: 4px; }
+
+.status { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.status b { color: var(--fg); font-weight: 700; }
+.bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+@media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
+.stars { letter-spacing: .1em; color: var(--gold); }
+
+.card { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 22px; display: grid; grid-template-columns: minmax(0, 240px) minmax(0, 1fr); gap: 22px; }
+@media (max-width: 600px) { .card { grid-template-columns: 1fr; } }
+.photo { display: grid; gap: 8px; margin: 0; }
+.photo .frame { width: 100%; max-width: 240px; aspect-ratio: 3 / 4; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); margin: 0 auto; display: grid; place-items: center; overflow: hidden; }
+.photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo .crest { font-family: var(--font-display); color: var(--gold); font-size: 72px; line-height: 1; }
+.photo .crest small { display: block; font-family: var(--font-body); font-size: 12px; color: var(--muted); margin-top: 10px; }
+.photo figcaption { font-size: 12px; color: var(--muted); text-align: center; }
+.q { display: grid; gap: 14px; align-content: start; min-width: 0; }
+.q h2 { font-family: var(--font-display); font-size: 22px; margin: 0; font-weight: 700; }
+.q .lv { font-size: 13px; color: var(--muted); display: flex; gap: 14px; flex-wrap: wrap; }
+.hint { font-size: 15px; padding: 10px 14px; border-radius: 8px; background: var(--bg); border-left: 4px solid var(--gold); }
+.hintbtn { font: inherit; font-size: 14px; cursor: pointer; background: transparent; color: var(--accent); border: 1.5px dashed var(--accent); border-radius: 8px; padding: 8px 14px; justify-self: start; }
+.hintbtn:focus-visible, .btn:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
+.choices { display: grid; gap: 10px; }
+.choice {
+  font: inherit; text-align: left; cursor: pointer; width: 100%;
+  background: var(--paper); color: var(--fg); border: 1.5px solid var(--line); border-radius: 8px;
+  padding: 12px 14px; display: flex; gap: 12px; align-items: center; font-size: 17px;
+}
+.choice .k { font-family: var(--font-display); font-weight: 700; color: var(--accent); width: 1.4em; flex: none; }
+.choice:hover:not(:disabled) { border-color: var(--accent); }
+.choice:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.choice:disabled { cursor: default; }
+.choice.correct { background: var(--good-bg); border-color: var(--good); }
+.choice.wrong { background: var(--bad-bg); border-color: var(--bad); }
+.choice.dim { opacity: .55; }
+.result { display: grid; gap: 6px; padding: 12px 14px; border-radius: 8px; border-left: 4px solid var(--line); background: var(--bg); font-size: 15px; }
+.result.ok { border-left-color: var(--good); }
+.result.ng { border-left-color: var(--bad); }
+.result .verdict { font-family: var(--font-display); font-weight: 700; font-size: 18px; }
+.result.ok .verdict { color: var(--good); }
+.result.ng .verdict { color: var(--bad); }
+.result .name { font-weight: 700; }
+.btn { font: inherit; font-weight: 700; cursor: pointer; background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 8px; padding: 12px 22px; font-size: 16px; justify-self: start; }
+.btn.ghost { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
+
+.final { display: grid; gap: 16px; background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 26px 22px; }
+.final .score { font-family: var(--font-display); font-size: clamp(40px, 10vw, 64px); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.final .score span { font-size: .4em; color: var(--muted); font-weight: 500; }
+.final .rank { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--accent); }
+.review { display: grid; gap: 6px; font-size: 14px; list-style: none; padding: 0; margin: 0; }
+.review li { display: grid; grid-template-columns: 1.6em 1.2em 1fr; gap: 8px; align-items: baseline; font-variant-numeric: tabular-nums; }
+.review .mk { font-weight: 700; }
+.review .ok { color: var(--good); } .review .ng { color: var(--bad); }
+.review .ans { color: var(--muted); }
+footer { font-size: 12px; color: var(--muted); line-height: 1.6; }
+footer a { color: inherit; }
+footer .sig { font-weight: 700; color: var(--fg); font-size: 13px; margin-bottom: 4px; }
+footer details { margin-top: 6px; }
+footer summary { cursor: pointer; }
+footer ul { padding-left: 1.2em; margin: 6px 0 0; }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Rekidai Tennō Quiz</div>
+    <h1>歴代天皇クイズ<small>この天皇はだれでしょう？ 3択・全10問（出題は毎回変わります）</small></h1>
+  </header>
+
+  <div class="status" id="status">
+    <span>問 <b id="qno">1</b> / 10</span>
+    <span>正解 <b id="score">0</b></span>
+    <span>難易度 <span class="stars" id="stars">★</span></span>
+  </div>
+  <div class="bar"><i id="barfill"></i></div>
+
+  <section class="card" id="card">
+    <figure class="photo">
+      <div class="frame" id="frame"></div>
+      <figcaption id="cap"></figcaption>
+    </figure>
+    <div class="q">
+      <h2 id="qtext">この天皇はだれでしょう？</h2>
+      <div class="lv"><span id="lv"></span><span id="era"></span></div>
+      <div class="hint" id="hint" hidden></div>
+      <button class="hintbtn" id="hintbtn" type="button" hidden>ヒントを見る</button>
+      <div class="choices" id="choices"></div>
+      <div class="result" id="result" hidden>
+        <div class="verdict" id="verdict"></div>
+        <div><span class="name" id="aname"></span>（<span id="ainfo"></span>）</div>
+        <div id="afact"></div>
+      </div>
+      <button class="btn" id="next" type="button" hidden>次の問題へ</button>
+    </div>
+  </section>
+
+  <section class="final" id="final" hidden>
+    <div class="eyebrow">結果</div>
+    <div class="score"><span id="fscore">0</span><span> / 10 問正解</span></div>
+    <div class="rank" id="frank"></div>
+    <ul class="review" id="review"></ul>
+    <button class="btn ghost" id="again" type="button">もう一度挑戦する</button>
+  </section>
+
+  <footer>
+    <div class="sig">制作: aNo研</div>
+    肖像画・写真は Wikimedia Commons のパブリックドメイン画像を使用。肖像が伝わらない天皇は菊の紋で代用しています。代数は宮内庁の歴代天皇一覧に従い、神話時代の天皇も含みます。
+    <details><summary>画像の出典一覧</summary><ul>
+<li>徳仁: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Naruhito_20250611_(54582524056,_cropped).jpg" target="_blank" rel="noopener">Emperor_Naruhito_20250611_(54582524056,_cropped).jpg</a>（Presidencia de Guatemala、Public domain）</li>
+<li>明仁: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Akihito_(2016).jpg" target="_blank" rel="noopener">Emperor_Akihito_(2016).jpg</a>（Malacañang Photo Bureau、Public domain）</li>
+<li>昭和天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Showa.jpg" target="_blank" rel="noopener">Emperor_Showa.jpg</a>（宮内省(Imperial Household Agency)、Public domain）</li>
+<li>大正天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Taish%C5%8D.jpg" target="_blank" rel="noopener">Emperor_Taishō.jpg</a>（Ministry of the Imperial Household、Public domain）</li>
+<li>明治天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Meiji_in_1873.jpg" target="_blank" rel="noopener">Emperor_Meiji_in_1873.jpg</a>（&lt;bdi&gt;&lt;a href=&quot;https://en.wikipedia.org/wiki/en:Uchida_Kuichi&quot; class=&quot;extiw&quot; title=&quot;w:en:Uchida Kuichi&quot;&gt;&lt;span title=&quot;Japa、Public domain）</li>
+<li>神武天皇: <a href="https://commons.wikimedia.org/wiki/File:Tenn%C5%8D_Jimmu_image_01.jpg" target="_blank" rel="noopener">Tennō_Jimmu_image_01.jpg</a>（Renzō Kita、Public domain）</li>
+<li>推古天皇: <a href="https://commons.wikimedia.org/wiki/File:Empress_Suiko_by_Tosa_Mitsuyoshi_1726_Eifukuji_Osaka.png" target="_blank" rel="noopener">Empress_Suiko_by_Tosa_Mitsuyoshi_1726_Eifukuji_Osaka.png</a>（Tosa Mitsuyoshi、Public domain）</li>
+<li>天智天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Tenji_(Kanou_Tanyuu).jpg" target="_blank" rel="noopener">Emperor_Tenji_(Kanou_Tanyuu).jpg</a>（Kanō Tan&#x27;yū、Public domain）</li>
+<li>聖武天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Shomu.jpg" target="_blank" rel="noopener">Emperor_Shomu.jpg</a>（Unknown author、Public domain）</li>
+<li>桓武天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Kammu_large.jpg" target="_blank" rel="noopener">Emperor_Kammu_large.jpg</a>（Unknown、Public domain）</li>
+<li>後醍醐天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Godaigo_by_Monkan-b%C5%8D_K%C5%8Dshin.jpg" target="_blank" rel="noopener">Emperor_Godaigo_by_Monkan-bō_Kōshin.jpg</a>（Monkan-bō Kōshin、Public domain）</li>
+<li>持統天皇: <a href="https://commons.wikimedia.org/wiki/File:Empress_Jito_by_Katsukawa_Shunsho.png" target="_blank" rel="noopener">Empress_Jito_by_Katsukawa_Shunsho.png</a>（Katsukawa Shunshō、Public domain）</li>
+<li>天武天皇: <a href="https://commons.wikimedia.org/wiki/File:%E5%A4%A9%E6%AD%A6%E5%A4%A9%E7%9A%87%E5%BE%A1%E5%BD%B1%E3%80%81%E9%87%91%E5%89%9B%E5%B1%B1%E5%AF%BA%E6%89%80%E8%94%B5.jpg" target="_blank" rel="noopener">天武天皇御影、金剛山寺所蔵.jpg</a>（Xwdgtpwga、CC0）</li>
+<li>後鳥羽天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Go-Toba.jpg" target="_blank" rel="noopener">Emperor_Go-Toba.jpg</a>（Fujiwara no Nobuzane、Public domain）</li>
+<li>後白河天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Go-Shirakawa2.jpg" target="_blank" rel="noopener">Emperor_Go-Shirakawa2.jpg</a>（Fujiwara no Tamenobu、Public domain）</li>
+<li>白河天皇: <a href="https://commons.wikimedia.org/wiki/File:%E5%AF%9B%E6%B2%BB%E4%B8%83%E5%B9%B4%E6%98%A5%E6%97%A5%E7%A4%BE%E5%BE%A1%E5%B9%B8%E3%81%AE%E7%99%BD%E6%B2%B3%E9%99%A2.jpg" target="_blank" rel="noopener">寛治七年春日社御幸の白河院.jpg</a>（Unknown author、Public domain）</li>
+<li>孝明天皇: <a href="https://commons.wikimedia.org/wiki/File:%E5%AD%9D%E6%98%8E%E5%A4%A9%E7%9A%87%E5%AE%B8%E5%BD%B1.jpg" target="_blank" rel="noopener">孝明天皇宸影.jpg</a>（Koyama Shōtarō、Public domain）</li>
+<li>仁徳天皇: <a href="https://commons.wikimedia.org/wiki/File:Azuma_nishiki_chuya_kurabe,_Nintoku_tenno_(detail).jpg" target="_blank" rel="noopener">Azuma_nishiki_chuya_kurabe,_Nintoku_tenno_(detail).jpg</a>（Toyohara Chikanobu、Public domain）</li>
+<li>元明天皇: <a href="https://commons.wikimedia.org/wiki/File:Empress_Gemmei.jpg" target="_blank" rel="noopener">Empress_Gemmei.jpg</a>（Published by 三英舎 (San&#x27;ei-sha)、Public domain）</li>
+<li>醍醐天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Daigo.jpg" target="_blank" rel="noopener">Emperor_Daigo.jpg</a>（Unknown artist、Public domain）</li>
+<li>崇徳天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Sutoku2.jpg" target="_blank" rel="noopener">Emperor_Sutoku2.jpg</a>（Fujiwara no Tamenobu、Public domain）</li>
+<li>安徳天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Antoku.jpg" target="_blank" rel="noopener">Emperor_Antoku.jpg</a>（Unknown、Public domain）</li>
+<li>雄略天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Y%C5%ABryaku.jpg" target="_blank" rel="noopener">Emperor_Yūryaku.jpg</a>（Published by 三英舎 (San&#x27;ei-sha)、Public domain）</li>
+<li>欽明天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Kinmei.jpg" target="_blank" rel="noopener">Emperor_Kinmei.jpg</a>（三宅幸太郎 (Kōtarō Miyake)、Public domain）</li>
+<li>孝徳天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Kotoku.jpg" target="_blank" rel="noopener">Emperor_Kotoku.jpg</a>（明治天皇聖徳奉讃会、Public domain）</li>
+<li>皇極天皇: <a href="https://commons.wikimedia.org/wiki/File:Empress_Kogyoku-Saimei.jpg" target="_blank" rel="noopener">Empress_Kogyoku-Saimei.jpg</a>（Published by 三英舎 (San&#x27;ei-sha)、Public domain）</li>
+<li>称徳天皇: <a href="https://commons.wikimedia.org/wiki/File:Empress_K%C5%8Dken_01.jpg" target="_blank" rel="noopener">Empress_Kōken_01.jpg</a>（三宅幸太郎、Public domain）</li>
+<li>一条天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Ichij%C5%8D.jpg" target="_blank" rel="noopener">Emperor_Ichijō.jpg</a>（Unknown、Public domain）</li>
+<li>後三条天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Go-sanj%C5%8D.jpg" target="_blank" rel="noopener">Emperor_Go-sanjō.jpg</a>（石本秋園 (Ishimoto Shūen)、Public domain）</li>
+<li>後宇多天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Go-Uda.jpg" target="_blank" rel="noopener">Emperor_Go-Uda.jpg</a>（Fujiwara no Tamenobu、Public domain）</li>
+<li>正親町天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Ogimachi2.jpg" target="_blank" rel="noopener">Emperor_Ogimachi2.jpg</a>（投稿者がファイル作成、Public domain）</li>
+<li>後陽成天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Go-Y%C5%8Dzei2.jpg" target="_blank" rel="noopener">Emperor_Go-Yōzei2.jpg</a>（Kanō Takanobu（1571 - 1618）、Public domain）</li>
+<li>後水尾天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Go-Mizunoo3.jpg" target="_blank" rel="noopener">Emperor_Go-Mizunoo3.jpg</a>（Ogata Kōrin、Public domain）</li>
+<li>光格天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_K%C5%8Dkaku.jpg" target="_blank" rel="noopener">Emperor_Kōkaku.jpg</a>（Toyooka Harusuke、Public domain）</li>
+<li>村上天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Murakami.jpg" target="_blank" rel="noopener">Emperor_Murakami.jpg</a>（Unknown、Public domain）</li>
+<li>花山天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Kazan.jpg" target="_blank" rel="noopener">Emperor_Kazan.jpg</a>（Unknown、Public domain）</li>
+<li>継体天皇: <a href="https://commons.wikimedia.org/wiki/File:Stone_image_of_the_Enperor_Keitai_in_Asuwayama,Fukui_City,Japan.jpg" target="_blank" rel="noopener">Stone image of the Enperor Keitai in Asuwayama,Fukui City,Japan.jpg</a>（Unknown author、Public domain）</li>
+<li>文武天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Monmu.jpg" target="_blank" rel="noopener">Emperor_Monmu.jpg</a>（Unknown、Public domain）</li>
+<li>元正天皇: <a href="https://commons.wikimedia.org/wiki/File:Empress_Gensh%C5%8D_Tsubosaka-dera.jpg" target="_blank" rel="noopener">Empress_Genshō_Tsubosaka-dera.jpg</a>（Unknown、Public domain）</li>
+<li>光仁天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Konin.jpg" target="_blank" rel="noopener">Emperor_Konin.jpg</a>（明治天皇聖徳奉讃会、Public domain）</li>
+<li>嵯峨天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Saga_large.jpg" target="_blank" rel="noopener">Emperor_Saga_large.jpg</a>（Unknown、Public domain）</li>
+<li>清和天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Seiwa.jpg" target="_blank" rel="noopener">Emperor_Seiwa.jpg</a>（Ryōkyō、Public domain）</li>
+<li>宇多天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Uda_large.jpg" target="_blank" rel="noopener">Emperor_Uda_large.jpg</a>（Unknown、Public domain）</li>
+<li>高倉天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Takakura.jpg" target="_blank" rel="noopener">Emperor_Takakura.jpg</a>（&lt;a href=&quot;https://en.wikipedia.org/wiki/Fujiwara_no_Tamenobu&quot; class=&quot;extiw&quot; title=&quot;en:Fujiwara no Tamenobu&quot;&gt;Fujiwara no T、Public domain）</li>
+<li>順徳天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Juntoku_large.jpg" target="_blank" rel="noopener">Emperor_Juntoku_large.jpg</a>（&lt;a href=&quot;https://en.wikipedia.org/wiki/Fujiwara_no_Tamenobu&quot; class=&quot;extiw&quot; title=&quot;en:Fujiwara no Tamenobu&quot;&gt;Fujiwara no T、Public domain）</li>
+<li>後嵯峨天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Go-Saga.jpg" target="_blank" rel="noopener">Emperor_Go-Saga.jpg</a>（Fujiwara no Tamenobu、Public domain）</li>
+<li>後亀山天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Go-Kameyama.jpg" target="_blank" rel="noopener">Emperor_Go-Kameyama.jpg</a>（Published by メディアックス(Mediax)、Public domain）</li>
+<li>後小松天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Go-Komatsu.jpg" target="_blank" rel="noopener">Emperor_Go-Komatsu.jpg</a>（Unknown、Public domain）</li>
+<li>明正天皇: <a href="https://commons.wikimedia.org/wiki/File:Meisho_of_Japan.jpg" target="_blank" rel="noopener">Meisho_of_Japan.jpg</a>（作者不詳、Public domain）</li>
+<li>後桜町天皇: <a href="https://commons.wikimedia.org/wiki/File:Empress_Go-Sakuramachi.jpg" target="_blank" rel="noopener">Empress_Go-Sakuramachi.jpg</a>（Published by 三英舎 (San&#x27;ei-sha)、Public domain）</li>
+<li>仁孝天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Nink%C5%8D.jpg" target="_blank" rel="noopener">Emperor_Ninkō.jpg</a>（Toyooka Harusuke、Public domain）</li>
+<li>東山天皇: <a href="https://commons.wikimedia.org/wiki/File:Emperor_Higashiyama.jpg" target="_blank" rel="noopener">Emperor_Higashiyama.jpg</a>（Prince Kōkan、Public domain）</li>
+    </ul></details>
+  </footer>
+</div>
+
+<script>
+const POOL = [
+{"n": 126, "name": "徳仁", "e": "N", "d": 1, "hint": "2019年に即位した現在の天皇。元号は「令和」。", "img": true},
+{"n": 125, "name": "明仁", "e": "N", "d": 1, "hint": "平成の天皇。2019年に約200年ぶりの生前退位をして上皇になった。", "img": true},
+{"n": 124, "name": "昭和天皇", "e": "N", "d": 1, "hint": "在位62年余りで歴代最長。戦争と戦後復興の時代の天皇。", "img": true},
+{"n": 123, "name": "大正天皇", "e": "N", "d": 1, "hint": "明治天皇の皇子で、在位1912〜1926年。", "img": true},
+{"n": 122, "name": "明治天皇", "e": "N", "d": 1, "hint": "明治維新のときの天皇。東京に遷り、大日本帝国憲法を発布した。", "img": true},
+{"n": 1, "name": "神武天皇", "e": "K", "d": 2, "hint": "『日本書紀』で初代とされる天皇。橿原宮で即位したと伝えられる。", "img": true},
+{"n": 33, "name": "推古天皇", "e": "A", "d": 2, "hint": "日本で最初の女性天皇。甥の聖徳太子（厩戸皇子）が摂政を務めた。", "img": true},
+{"n": 38, "name": "天智天皇", "e": "A", "d": 2, "hint": "中大兄皇子として大化の改新を主導。近江大津宮に遷都した。", "img": true},
+{"n": 45, "name": "聖武天皇", "e": "A", "d": 2, "hint": "東大寺の大仏と国分寺の建立を命じた。遺品が正倉院に伝わる。", "img": true},
+{"n": 50, "name": "桓武天皇", "e": "H", "d": 2, "hint": "794年に平安京へ遷都した。坂上田村麻呂を征夷大将軍に任じた。", "img": true},
+{"n": 96, "name": "後醍醐天皇", "e": "M", "d": 2, "hint": "鎌倉幕府を倒し「建武の新政」を行った。のちに吉野へ移り南朝を開いた。", "img": true},
+{"n": 41, "name": "持統天皇", "e": "A", "d": 2, "hint": "天武天皇の皇后。藤原京を完成させ、「春過ぎて夏来にけらし」の歌で知られる。", "img": true},
+{"n": 40, "name": "天武天皇", "e": "A", "d": 3, "hint": "壬申の乱で大友皇子に勝利して即位。『古事記』『日本書紀』の編纂を命じた。", "img": true},
+{"n": 82, "name": "後鳥羽天皇", "e": "M", "d": 3, "hint": "承久の乱を起こして鎌倉幕府に敗れ、隠岐に流された。『新古今和歌集』を編纂させた。", "img": true},
+{"n": 77, "name": "後白河天皇", "e": "H", "d": 3, "hint": "保元の乱に勝利。長く院政を行い、『梁塵秘抄』を編んだ。", "img": true},
+{"n": 72, "name": "白河天皇", "e": "H", "d": 3, "hint": "1086年に譲位して院政を始めた。「天下三不如意」の逸話で知られる。", "img": true},
+{"n": 121, "name": "孝明天皇", "e": "E", "d": 3, "hint": "幕末の天皇。攘夷を強く求め、妹の和宮が将軍家茂に嫁いだ。", "img": true},
+{"n": 16, "name": "仁徳天皇", "e": "K", "d": 3, "hint": "「民のかまど」の逸話で知られ、日本最大の前方後円墳が陵とされる。", "img": true},
+{"n": 43, "name": "元明天皇", "e": "A", "d": 3, "hint": "710年に平城京へ遷都した女性天皇。『古事記』が完成した。", "img": true},
+{"n": 60, "name": "醍醐天皇", "e": "H", "d": 3, "hint": "「延喜の治」と呼ばれる親政を行い、『古今和歌集』の編纂を命じた。", "img": true},
+{"n": 75, "name": "崇徳天皇", "e": "H", "d": 3, "hint": "保元の乱に敗れて讃岐に流された。日本三大怨霊の一人とされる。", "img": true},
+{"n": 81, "name": "安徳天皇", "e": "H", "d": 3, "hint": "平清盛の孫。壇ノ浦の戦いで数え8歳で入水した。", "img": true},
+{"n": 21, "name": "雄略天皇", "e": "K", "d": 4, "hint": "稲荷山古墳出土の鉄剣に名が刻まれた「ワカタケル大王」と考えられている。", "img": true},
+{"n": 29, "name": "欽明天皇", "e": "K", "d": 4, "hint": "百済から仏教が公式に伝来したときの天皇。", "img": true},
+{"n": 36, "name": "孝徳天皇", "e": "A", "d": 4, "hint": "大化の改新で即位し、難波長柄豊碕宮に遷都した。初めて元号「大化」を定めた。", "img": true},
+{"n": 35, "name": "皇極天皇", "e": "A", "d": 4, "hint": "乙巳の変で蘇我入鹿が殺されたときの女性天皇。のちに斉明天皇として重祚した。", "img": true},
+{"n": 48, "name": "称徳天皇", "e": "A", "d": 4, "hint": "孝謙天皇として即位し、重祚した女性天皇。僧の道鏡を重用した。", "img": true},
+{"n": 66, "name": "一条天皇", "e": "H", "d": 4, "hint": "中宮定子に清少納言、中宮彰子に紫式部が仕えた時代の天皇。", "img": true},
+{"n": 71, "name": "後三条天皇", "e": "H", "d": 4, "hint": "延久の荘園整理令を出し、摂関家に頼らない政治を行った。", "img": true},
+{"n": 91, "name": "後宇多天皇", "e": "M", "d": 4, "hint": "文永・弘安の役（元寇）のときの天皇。", "img": true},
+{"n": 106, "name": "正親町天皇", "e": "E", "d": 4, "hint": "織田信長・豊臣秀吉の時代の天皇。信長の援助で御所を修理した。", "img": true},
+{"n": 107, "name": "後陽成天皇", "e": "E", "d": 4, "hint": "豊臣秀吉の聚楽第に行幸した。朝鮮出兵や関ヶ原の戦いの時代の天皇。", "img": true},
+{"n": 108, "name": "後水尾天皇", "e": "E", "d": 4, "hint": "徳川秀忠の娘・和子を中宮とし、紫衣事件に抗議して譲位した。修学院離宮を造営。", "img": true},
+{"n": 119, "name": "光格天皇", "e": "E", "d": 4, "hint": "父への尊号をめぐり幕府と対立（尊号一件）。2019年まで最後の譲位をした天皇だった。", "img": true},
+{"n": 62, "name": "村上天皇", "e": "H", "d": 4, "hint": "「天暦の治」と呼ばれる親政を行い、『後撰和歌集』の編纂を命じた。", "img": true},
+{"n": 65, "name": "花山天皇", "e": "H", "d": 4, "hint": "藤原兼家らの策謀により、在位2年で出家させられた。", "img": true},
+{"n": 26, "name": "継体天皇", "e": "K", "d": 5, "hint": "越前（近江）から迎えられて即位したと伝えられ、現皇室の祖とされることが多い。", "img": true},
+{"n": 42, "name": "文武天皇", "e": "A", "d": 5, "hint": "大宝律令を制定したときの天皇。持統天皇の孫。", "img": true},
+{"n": 44, "name": "元正天皇", "e": "A", "d": 5, "hint": "養老律令が編纂された時代の女性天皇。母は元明天皇。", "img": true},
+{"n": 49, "name": "光仁天皇", "e": "A", "d": 5, "hint": "天智天皇の孫で、桓武天皇の父。62歳で即位した。", "img": true},
+{"n": 52, "name": "嵯峨天皇", "e": "H", "d": 5, "hint": "薬子の変を鎮め、蔵人所・検非違使を設けた。三筆の一人。", "img": true},
+{"n": 56, "name": "清和天皇", "e": "H", "d": 5, "hint": "9歳で即位し、藤原良房が人臣初の摂政となった。清和源氏の祖。", "img": true},
+{"n": 59, "name": "宇多天皇", "e": "H", "d": 5, "hint": "菅原道真を登用し「寛平の治」を行った。退位後は法皇となった。", "img": true},
+{"n": 80, "name": "高倉天皇", "e": "H", "d": 5, "hint": "平清盛の娘・徳子を中宮とし、安徳天皇の父となった。", "img": true},
+{"n": 84, "name": "順徳天皇", "e": "M", "d": 5, "hint": "承久の乱に関わり佐渡に流された。『禁秘抄』を著した。", "img": true},
+{"n": 88, "name": "後嵯峨天皇", "e": "M", "d": 5, "hint": "持明院統と大覚寺統の分裂のもととなった。", "img": true},
+{"n": 99, "name": "後亀山天皇", "e": "M", "d": 5, "hint": "南朝最後の天皇。1392年の南北朝合一で北朝の後小松天皇に譲位した。", "img": true},
+{"n": 100, "name": "後小松天皇", "e": "M", "d": 5, "hint": "南北朝合一を受けた天皇。一休宗純の父と伝えられる。", "img": true},
+{"n": 109, "name": "明正天皇", "e": "E", "d": 5, "hint": "後水尾天皇と徳川和子の娘。奈良時代以来約860年ぶりの女性天皇。", "img": true},
+{"n": 117, "name": "後桜町天皇", "e": "E", "d": 5, "hint": "江戸時代の女性天皇で、日本史上最後の女性天皇。", "img": true},
+{"n": 120, "name": "仁孝天皇", "e": "E", "d": 5, "hint": "孝明天皇の父。公家の教育機関「学習所」（学習院の前身）の設立を進めた。", "img": true},
+{"n": 113, "name": "東山天皇", "e": "E", "d": 5, "hint": "赤穂事件（忠臣蔵）のころの天皇。大嘗祭を約220年ぶりに再興した。", "img": true}
+];
+const LEVELS = ["入門", "初級", "中級", "上級", "達人"];
+const ERA = {K:"古代", A:"飛鳥・奈良", H:"平安", M:"鎌倉〜室町", E:"安土桃山・江戸", N:"近現代"};
+const $ = id => document.getElementById(id);
+let state = { i: 0, score: 0, answered: [], hinted: [], qs: [] };
+
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function img(n) { return "img/" + String(n).padStart(3, "0") + ".jpg"; }
+function label(p) { return p.name.endsWith("天皇") ? p.name : p.name + "（" + (p.n === 126 ? "今上天皇" : "上皇") + "）"; }
+
+// 難易度1〜5から2人ずつ無作為に選び、易しい順に並べる。誤答は同じ時代の天皇から2人。
+function makeQuiz() {
+  const qs = [];
+  for (let d = 1; d <= 5; d++) {
+    shuffle(POOL.filter(p => p.d === d)).slice(0, 2).forEach(p => {
+      const others = shuffle(POOL.filter(x => x.e === p.e && x.n !== p.n)).slice(0, 2).map(label);
+      qs.push({ n: p.n, img: p.img, answer: label(p), info: "第" + p.n + "代・" + ERA[p.e], hint: p.hint, d, e: p.e, choices: shuffle([label(p), ...others]) });
+    });
+  }
+  return qs;
+}
+
+function render() {
+  const i = state.i, qs = state.qs;
+  if (i >= qs.length) return renderFinal();
+  const q = qs[i];
+  $("card").hidden = false; $("final").hidden = true;
+  $("qno").textContent = i + 1;
+  $("score").textContent = state.score;
+  $("stars").textContent = "★".repeat(q.d) + "☆".repeat(5 - q.d);
+  $("barfill").style.width = (i / qs.length * 100) + "%";
+  $("lv").textContent = `難易度 ${LEVELS[q.d - 1]}`;
+  $("era").textContent = `時代 ${ERA[q.e]}`;
+  const fr = $("frame");
+  if (q.img) { fr.innerHTML = `<img src="${img(q.n)}" alt="天皇の肖像">`; $("cap").textContent = "肖像: Wikimedia Commons（パブリックドメイン）"; }
+  else { fr.innerHTML = `<div class="crest">菊<small>肖像は伝わっていません</small></div>`; $("cap").textContent = "ヒントから考えてください"; }
+  const done = state.answered[i];
+  const showHint = !q.img || state.hinted[i] || done;
+  $("hint").hidden = !showHint; $("hint").textContent = q.hint;
+  $("hintbtn").hidden = showHint;
+  const box = $("choices"); box.innerHTML = "";
+  q.choices.forEach((name, k) => {
+    const b = document.createElement("button");
+    b.className = "choice"; b.type = "button"; b.id = `c${i}_${k}`;
+    b.innerHTML = `<span class="k">${"ABC"[k]}</span><span>${name}</span>`;
+    if (done) {
+      b.disabled = true;
+      if (name === q.answer) b.classList.add("correct");
+      else if (name === done.picked) b.classList.add("wrong");
+      else b.classList.add("dim");
+    } else {
+      b.addEventListener("click", () => answer(name));
+    }
+    box.appendChild(b);
+  });
+  const r = $("result");
+  if (done) {
+    r.hidden = false; r.className = "result " + (done.ok ? "ok" : "ng");
+    $("verdict").textContent = done.ok ? "正解！" : "残念、不正解";
+    $("aname").textContent = q.answer; $("ainfo").textContent = q.info; $("afact").textContent = q.hint;
+    $("next").hidden = false;
+    $("next").textContent = i === qs.length - 1 ? "結果を見る" : "次の問題へ";
+  } else { r.hidden = true; $("next").hidden = true; }
+}
+
+function answer(name) {
+  const q = state.qs[state.i];
+  const ok = name === q.answer;
+  state.answered[state.i] = { picked: name, ok };
+  if (ok) state.score++;
+  render();
+  $("next").focus();
+}
+
+function rankText(s) {
+  if (s === 10) return "全問正解！ 宮内庁書陵部の研究員レベルです。";
+  if (s >= 8) return "上級者。平安・中世の天皇まで押さえています。";
+  if (s >= 6) return "なかなかの歴史通。中世以降の天皇が伸びしろです。";
+  if (s >= 4) return "近現代と飛鳥・奈良は得意。平安以降へ広げましょう。";
+  return "まずは明治以降と、教科書に出る天皇から。";
+}
+
+function renderFinal() {
+  $("card").hidden = true; $("final").hidden = false;
+  $("barfill").style.width = "100%";
+  $("qno").textContent = 10; $("score").textContent = state.score;
+  $("fscore").textContent = state.score;
+  $("frank").textContent = rankText(state.score);
+  const ul = $("review"); ul.innerHTML = "";
+  state.qs.forEach((q, i) => {
+    const a = state.answered[i];
+    const li = document.createElement("li");
+    li.innerHTML = `<span>${i + 1}.</span><span class="mk ${a.ok ? "ok" : "ng"}">${a.ok ? "○" : "×"}</span><span>${q.answer} <span class="ans">${q.info}${a.ok ? "" : "／あなたの回答: " + a.picked}</span></span>`;
+    ul.appendChild(li);
+  });
+}
+
+$("hintbtn").addEventListener("click", () => { state.hinted[state.i] = true; render(); });
+$("next").addEventListener("click", () => { state.i++; render(); window.scrollTo({ top: 0 }); });
+$("again").addEventListener("click", () => { state = { i: 0, score: 0, answered: [], hinted: [], qs: makeQuiz() }; render(); });
+
+function start(saved) {
+  if (saved && saved.qs && saved.qs.length === 10) state = saved;
+  else state.qs = makeQuiz();
+  render();
+}
+window.claude?.hot?.snapshot?.(() => state);
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+</script>
+
+</body>
+</html>
