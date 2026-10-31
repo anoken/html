@@ -21,6 +21,7 @@
 | 花粉ビューワー | 住所を入力して花粉の飛散状況をビジュアル表示 | [Play](https://anoken.github.io/html/pollen_view.html) |
 | モールス信号変換器 | カタカナを和文モールス信号に変換し、音と光で再生・WAV保存が可能 | [Play](https://anoken.github.io/html/morse_code.html) |
 | 重心テトリス | 重心を意識して積む物理テトリス | [Play](https://anoken.github.io/html/gravity-tetris.html) |
+| からあげレモン戦争 | 相手が振り向かない隙にからあげへレモンを搾る3Dアクションゲーム（Three.js、ベストスコア保存） | [Play](https://anoken.github.io/html/karaage-lemon.html) |
 | 総理大臣クイズ | 歴代総理大臣66人の顔写真から名前を当てる3択クイズ（10問・毎回出題が変わり難易度が上がる） | [Play](https://anoken.github.io/html/prime-minister-quiz/) |
 | 歴代天皇クイズ | 初代神武天皇から今上天皇まで52人の肖像とヒントから名前を当てる3択クイズ | [Play](https://anoken.github.io/html/emperor-quiz/) |
 | 歴代お札クイズ | 明治以降のお札の肖像になった21人を当てる3択クイズ（人物当て・券種当ての2形式） | [Play](https://anoken.github.io/html/banknote-quiz/) |
@@ -35,6 +36,7 @@ html/
 ├── docs/                          # GitHub Pages 公開ディレクトリ
 │   ├── digital-rain.html          # Digital Rain
 │   ├── gravity-tetris.html        # 重心テトリス
+│   ├── karaage-lemon.html         # からあげレモン戦争
 │   ├── inverted_pendulum.html     # 倒立振子バランスゲーム
 │   ├── inverted_pendulum_swingup.html # 倒立振子 振り上げ制御
 │   ├── mahjong_draft.html         # 麻雀ドラフト
@@ -70,3 +72,4 @@ html/
 - モダンブラウザ（Chrome, Safari, Firefox, Edge）
 - 一部アプリはスマートフォンの加速度センサーを利用（HTTPS環境が必要）
 - 一部アプリはマイクへのアクセスが必要
+- からあげレモン戦争は Three.js（r128）を CDN から読み込むため、ネット接続が必要

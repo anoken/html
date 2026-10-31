@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>からあげレモン戦争</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1a120c; font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif; color: #fff; user-select: none; -webkit-user-select: none; }
+  canvas { display: block; touch-action: none; }
+  .hidden { display: none !important; }
+
+  /* ---- HUD ---- */
+  #hud { position: fixed; inset: 0; pointer-events: none; }
+  .stat { position: absolute; top: 14px; padding: 8px 16px; background: rgba(20, 12, 6, .65); border-radius: 12px; font-size: 14px; line-height: 1.3; }
+  .stat b { display: block; font-size: 28px; font-variant-numeric: tabular-nums; }
+  #scoreBox { left: 14px; }
+  #bestBox { right: 14px; text-align: right; }
+  #mult { position: absolute; top: 92px; left: 18px; font-weight: 900; color: #ffe45c; text-shadow: 0 2px 6px #000, 0 0 12px rgba(255, 80, 0, .8); display: none; }
+  #bottom { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); width: min(420px, 86vw); text-align: center; }
+  #hint { font-size: 15px; text-shadow: 0 1px 4px #000; margin-bottom: 8px; }
+  #gaugeWrap { height: 14px; background: rgba(20, 12, 6, .65); border-radius: 7px; overflow: hidden; border: 1px solid rgba(255, 255, 255, .25); }
+  #gauge { height: 100%; width: 0; background: linear-gradient(90deg, #ffe45c, #fff9a8); }
+  #bubble { position: absolute; padding: 6px 14px; background: #fff; color: #222; border-radius: 16px; font-weight: bold; font-size: 20px; transform: translate(-50%, -50%); display: none; white-space: nowrap; box-shadow: 0 2px 8px rgba(0, 0, 0, .4); }
+  .pop { position: absolute; font-weight: bold; font-size: 20px; color: #ffe45c; text-shadow: 0 1px 4px #000; transform: translate(-50%, -50%); animation: pop .9s ease-out forwards; white-space: nowrap; }
+  .pop.big { font-size: 34px; color: #ff5a3c; }
+  .pop.neg { font-size: 24px; color: #6cc7ff; }
+  @keyframes pop { to { transform: translate(-50%, -190%); opacity: 0; } }
+  #flash { position: fixed; inset: 0; background: #c00; opacity: 0; pointer-events: none; transition: opacity .15s; }
+
+  /* ---- タイトル / ゲームオーバー / 設定 ---- */
+  .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(15, 8, 4, .72); }
+  .panel { width: min(480px, 88vw); padding: 28px 24px; background: #2b1d12; border: 2px solid #c98a3a; border-radius: 18px; text-align: center; box-sizing: border-box; }
+  .panel h1 { margin: 0 0 12px; font-size: 32px; color: #ffe45c; }
+  .panel p { margin: 8px 0; font-size: 15px; line-height: 1.7; }
+  .panel .big { font-size: 44px; font-weight: bold; color: #ffe45c; margin: 6px 0; }
+  .panel .danger { color: #ff5a3c; }
+  .panel button { margin-top: 16px; padding: 12px 40px; font-size: 20px; font-weight: bold; font-family: inherit; color: #2b1d12; background: #ffe45c; border: 0; border-radius: 999px; cursor: pointer; }
+  .panel button:hover { background: #fff3a0; }
+  #stamp { display: inline-block; margin: 6px 0 10px; padding: 2px 26px; font-size: 64px; font-weight: 900; letter-spacing: .15em; text-indent: .15em; color: #e8302a; border: 6px solid #e8302a; border-radius: 10px; transform: rotate(-8deg); animation: stamp .35s cubic-bezier(.2, 1.6, .4, 1) both; }
+  @keyframes stamp { from { transform: rotate(-8deg) scale(4); opacity: 0; } to { transform: rotate(-8deg) scale(1); opacity: 1; } }
+  #gearBtn { position: fixed; top: 92px; right: 14px; z-index: 20; padding: 8px 14px; font: inherit; font-size: 15px; font-weight: bold; color: #fff; background: rgba(20, 12, 6, .65); border: 1px solid rgba(255, 255, 255, .3); border-radius: 12px; cursor: pointer; }
+  #gearBtn:hover { background: rgba(60, 40, 20, .85); }
+  #menu { z-index: 30; justify-content: flex-end; padding: 0 24px; background: rgba(15, 8, 4, .3); }
+  #menu .panel { width: min(340px, 88vw); }
+  #menu h2 { margin: 18px 0 8px; font-size: 15px; color: #c98a3a; }
+  .choices { display: flex; flex-direction: column; gap: 8px; }
+  .panel button.choice { margin: 0; padding: 10px 14px; font-size: 16px; color: #fff; background: #3d2a1a; border: 2px solid #5a4028; border-radius: 12px; }
+  .panel button.choice:hover { background: #4d3622; }
+  .panel button.choice.on { color: #2b1d12; background: #ffe45c; border-color: #ffe45c; }
+</style>
+</head>
+<body>
+<div id="hud">
+  <div class="stat" id="scoreBox">GMKスコア<b id="score">0</b></div>
+  <div class="stat" id="bestBox">ベスト<b id="best">0</b></div>
+  <div id="mult"></div>
+  <div id="bubble"></div>
+  <div id="bottom">
+    <div id="hint"></div>
+    <div id="gaugeWrap"><div id="gauge"></div></div>
+  </div>
+</div>
+
+<div id="flash"></div>
+
+<div class="overlay" id="title">
+  <div class="panel">
+    <h1>🍋 からあげレモン戦争</h1>
+    <p>向かいの人は「からあげにレモンをかけない派」。<br>よそ見しているスキに、こっそりレモンをかけよう。</p>
+    <p>① 右の小皿の<b>レモンをクリック</b>して取る<br>② からあげの上で<b>長押し</b>して搾る<br>③ 搾っているところを<b>見られたらゲームオーバー</b></p>
+    <p>「ん？」と言ったら振り向く合図。フェイントにも注意！</p>
+    <p><b>搾り続けるほど倍率アップ</b>（離すとリセット）。<br>振り向く瞬間に離すと<b>ギリギリボーナス</b>！<br>見つかったら……<b class="danger">死刑</b>。</p>
+    <p>🍺 ビール（相手のも取れる）もかけられるが、<b>減点</b>されるうえレモンも流れる。<br>相手の<b>頭にかける</b>と大減点だが、しばらく目が見えなくなる。<br>手前のマヨネーズは<b>怒られない</b>が、加点は控えめ。</p>
+    <button id="startBtn">スタート</button>
+  </div>
+</div>
+
+<div class="overlay hidden" id="over">
+  <div class="panel">
+    <h1>見つかった！</h1>
+    <p>罪状：からあげに無断でレモンをかけた罪</p>
+    <div id="stamp">死刑</div>
+    <p id="execName"></p>
+    <p>GMKスコア</p>
+    <div class="big" id="finalScore">0</div>
+    <p id="finalBest"></p>
+    <button id="retryBtn">もう一回</button>
+  </div>
+</div>
+
+<button id="gearBtn">⚙ 設定</button>
+<div class="overlay hidden" id="menu">
+  <div class="panel">
+    <h1>設定</h1>
+    <h2>相手キャラの外見</h2>
+    <div class="choices" id="charChoices"></div>
+    <h2>サウンド</h2>
+    <div class="choices"><button class="choice" id="soundBtn"></button></div>
+    <button id="closeMenu">閉じる</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+  'use strict';
+
+  // =====================================================================
+  //  ユーティリティ
+  // =====================================================================
+  const $ = id => document.getElementById(id);
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const smooth = t => t * t * (3 - 2 * t);
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  const clamp = THREE.MathUtils.clamp;
+  const vec = (x, y, z) => new THREE.Vector3(x, y, z);
+  const UP = vec(0, 1, 0);
+  const SIDES = [-1, 1];
+
+  // localStorage が使えない環境でも動くようにする
+  const store = {
+    get(key) { try { return localStorage.getItem(key); } catch (e) { return null; } },
+    set(key, value) { try { localStorage.setItem(key, value); } catch (e) { /* 保存できなくても続行 */ } }
+  };
+  const KEYS = { best: 'karaageLemonBest', char: 'karaageLemonChar', mute: 'karaageLemonMute' };
+
+  // DOM は値が変わったときだけ書き換える
+  function setText(el, t) { if (el._t !== t) { el._t = t; el.textContent = t; } }
+  function setStyle(el, k, v) { const c = el._s || (el._s = {}); if (c[k] !== v) { c[k] = v; el.style[k] = v; } }
+
+  // =====================================================================
+  //  ルールの数値
+  // =====================================================================
+  const RULES = {
+    seeThreshold: 0.5,       // 相手の注目度がこれを超えると「見られている」
+    lemonTime: 4,            // レモン1切れを搾り切る秒数
+    karaTime: 1.0,           // からあげ1個にレモンをかけ切る秒数
+    karaPoints: 100, karaBonus: 50, roundBonus: 500, nearMissBonus: 200,
+    multRate: 0.9, multMax: 8,
+    beerTime: 3.5, beerLoss: 150, headLoss: 250,
+    blindRate: 2.2, blindMax: 4,
+    mayoTime: 5, mayoKaraTime: 1.0, mayoPoints: 40,
+    caughtTime: 2.2, execTime: 1.1
+  };
+  const EXECS = { crush: '執行方法：巨大からあげ落とし', laser: '執行方法：目からビーム' };
+  const SCOLDS = ['コラ！ビールかけるな！', 'ちょっと！もったいない！', '何してんの！？'];
+  const TAUNTS = ['…気のせいか', 'レモン減ってない？', 'なんか酸っぱい匂い…', 'かけたら死刑だからね', 'じーっ…'];
+
+  // =====================================================================
+  //  レンダラ・カメラ・ライト
+  // =====================================================================
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
+  document.body.insertBefore(renderer.domElement, document.body.firstChild);
+  const cv = renderer.domElement;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x24170e);
+
+  const camera = new THREE.PerspectiveCamera(55, 1, 0.05, 20);
+  const CAM_POS = vec(0, 1.5, 1.15);
+  const CAM_LOOK = vec(0, 0.98, -0.3);
+  const CAM_LOOK_UP = vec(0, 1.14, -0.3);      // 相手の頭を狙っているとき
+  const look = CAM_LOOK.clone();
+
+  function resize() {
+    const w = window.innerWidth, h = window.innerHeight;
+    renderer.setSize(w, h);
+    camera.aspect = w / h;
+    // 縦長画面でもレモン皿が入るように横方向の視野を確保する
+    const minHalfH = Math.tan(THREE.MathUtils.degToRad(33));
+    const halfV = Math.max(Math.tan(THREE.MathUtils.degToRad(27.5)), minHalfH / camera.aspect);
+    camera.fov = Math.min(95, THREE.MathUtils.radToDeg(Math.atan(halfV)) * 2);
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  scene.add(new THREE.HemisphereLight(0xfff0dd, 0x443322, 0.5));
+  const sun = new THREE.DirectionalLight(0xffe2b8, 0.6);
+  sun.position.set(0.7, 2.6, 0.9);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.autoUpdate = false;      // 影は2フレームに1回だけ描き直す
+  sun.shadow.camera.left = -1.3; sun.shadow.camera.right = 1.3;
+  sun.shadow.camera.top = 1.3; sun.shadow.camera.bottom = -1.3;
+  sun.shadow.camera.near = 0.5; sun.shadow.camera.far = 6;
+  sun.shadow.bias = -0.0015;
+  scene.add(sun);
+
+  // =====================================================================
+  //  モデル作成の共通部品
+  // =====================================================================
+  const LOW = { flatShading: true };      // 面を見せるローポリ用
+  const TABLE_Y = 0.75;
+
+  function std(color, rough = 0.8, extra) {
+    return new THREE.MeshStandardMaterial(Object.assign({ color, roughness: rough }, extra));
+  }
+  function mesh(geo, mat, x = 0, y = 0, z = 0, parent = scene) {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z);
+    m.castShadow = true; m.receiveShadow = true;
+    parent.add(m);
+    return m;
+  }
+  // 高さ 1 の円柱メッシュを、a と b を結ぶ向き・長さに合わせる
+  function stretchBetween(m, a, b, thick = 1) {
+    const dir = new THREE.Vector3().subVectors(b, a), len = dir.length();
+    m.position.copy(a).addScaledVector(dir, 0.5);
+    m.quaternion.setFromUnitVectors(UP, dir.normalize());
+    m.scale.set(thick, len, thick);
+  }
+  function tube(a, b, r, mat, parent) {
+    const m = mesh(new THREE.CylinderGeometry(r, r, 1, 6), mat, 0, 0, 0, parent);
+    stretchBetween(m, a, b);
+    return m;
+  }
+  function group(x, y, z, parent = scene) {
+    const g = new THREE.Group();
+    g.position.set(x, y, z);
+    parent.add(g);
+    return g;
+  }
+  function meshesOf(obj) {
+    const list = [];
+    obj.traverse(o => { if (o.isMesh) list.push(o); });
+    return list;
+  }
+  function canvasTexture(w, h, draw) {
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    draw(c.getContext('2d'));
+    return new THREE.CanvasTexture(c);
+  }
+  // からあげのゴツゴツ形状。amp で凹凸の強さを変えて髪や泡にも使う
+  function lumpGeo(r, amp, detail = 1) {
+    const g = new THREE.IcosahedronGeometry(r, detail);
+    const p = g.attributes.position, v = new THREE.Vector3(), f = 0.056 / r;
+    const a = rand(0, 10), b = rand(0, 10), c = rand(0, 10);
+    for (let i = 0; i < p.count; i++) {
+      v.fromBufferAttribute(p, i);
+      const n = Math.sin(v.x * 70 * f + a) * Math.sin(v.y * 60 * f + b) * Math.sin(v.z * 80 * f + c);
+      const n2 = Math.sin(v.x * 160 * f + b) * Math.sin(v.y * 170 * f + c) * Math.sin(v.z * 150 * f + a);
+      v.multiplyScalar(1 + (n * 0.22 + n2 * 0.1) * amp);
+      p.setXYZ(i, v.x, v.y, v.z);
+    }
+    g.computeVertexNormals();
+    return g;
+  }
+
+  // =====================================================================
+  //  部屋とテーブル
+  // =====================================================================
+  mesh(new THREE.PlaneGeometry(8, 8), std(0x3a2a1c, 0.95)).rotation.x = -Math.PI / 2;      // 床
+  mesh(new THREE.PlaneGeometry(8, 4), std(0x8a6a48, 0.95), 0, 2, -1.7);                    // 壁
+  mesh(new THREE.BoxGeometry(8, 0.9, 0.04), std(0x4a3020, 0.9), 0, 0.45, -1.68);           // 腰板
+
+  mesh(new THREE.BoxGeometry(1.7, 0.05, 1.1), std(0x7a4a24, 0.6), 0, TABLE_Y - 0.025, 0);
+  const legMat = std(0x5a3a20, 0.7);
+  [[-0.78, -0.48], [0.78, -0.48], [-0.78, 0.48], [0.78, 0.48]].forEach(([x, z]) => {
+    mesh(new THREE.BoxGeometry(0.06, TABLE_Y - 0.05, 0.06), legMat, x, (TABLE_Y - 0.05) / 2, z);
+  });
+
+  // 壁のお品書き
+  [['からあげ', -1.15], ['生ビール', -0.9], ['レモンサワー', 0.95], ['枝豆', 1.2]].forEach(([text, x]) => {
+    const tex = canvasTexture(96, 420, g => {
+      g.fillStyle = '#f3e6c8'; g.fillRect(0, 0, 96, 420);
+      g.strokeStyle = '#b33'; g.lineWidth = 6; g.strokeRect(3, 3, 90, 414);
+      g.fillStyle = '#221'; g.font = 'bold 46px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      const step = Math.min(52, 390 / text.length);
+      for (let i = 0; i < text.length; i++) g.fillText(text[i], 48, 30 + step * (i + 0.5) - 15);
+    });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.875), new THREE.MeshBasicMaterial({ map: tex }));
+    m.position.set(x, 1.5, -1.69);
+    scene.add(m);
+  });
+
+  // 提灯
+  const lantern = mesh(new THREE.SphereGeometry(0.16, 8, 6), std(0xd8402a, 0.6, { emissive: 0xa02010, emissiveIntensity: 0.9 }), -0.55, 2.05, -1.35);
+  lantern.scale.y = 1.25; lantern.castShadow = false;
+
+  // =====================================================================
+  //  皿・からあげ
+  // =====================================================================
+  const plateMat = std(0xf4f1ea, 0.35);
+  function makePlate(x, z, r) {
+    const g = group(x, TABLE_Y, z);
+    mesh(new THREE.CylinderGeometry(r, r * 0.7, 0.018, 20), plateMat, 0, 0.009, 0, g);
+    mesh(new THREE.TorusGeometry(r, 0.008, 5, 20), plateMat, 0, 0.018, 0, g).rotation.x = Math.PI / 2;
+    return g;
+  }
+  const PLATE = vec(0, TABLE_Y, -0.02);
+  const LEMON_PLATE = vec(0.5, TABLE_Y, 0.22);
+  makePlate(PLATE.x, PLATE.z, 0.31);
+  const lemonPlate = makePlate(LEMON_PLATE.x, LEMON_PLATE.z, 0.12);
+  mesh(new THREE.SphereGeometry(0.27, 12, 5), std(0xa9cf6a, 0.9), PLATE.x, TABLE_Y + 0.015, PLATE.z).scale.y = 0.09;   // キャベツ
+
+  // 箸
+  const hashiMat = std(0x3a2414, 0.5);
+  [0, 0.018].forEach(dx => {
+    mesh(new THREE.CylinderGeometry(0.004, 0.003, 0.24, 6), hashiMat, -0.2 + dx, TABLE_Y + 0.006, 0.42).rotation.z = Math.PI / 2;
+  });
+
+  // からあげ：5種類の形を回転・拡縮して使い回す。色は1個ずつ変わるのでマテリアルは個別
+  const KARA_COLOR = { base: new THREE.Color(0xb06a25), lemon: new THREE.Color(0xf0bd45), beer: new THREE.Color(0x5a3c1c) };
+  const karaGeos = [0, 1, 2, 3, 4].map(() => lumpGeo(0.056, 1));
+  const mayoBlobGeo = lumpGeo(0.03, 0.6);
+  const mayoBlobMat = std(0xfff6d8, 0.4, LOW);
+  const karaage = [], karaMeshes = [];
+
+  function addKaraage(r, ang, y) {
+    const m = mesh(karaGeos[karaage.length % karaGeos.length], std(0xb06a25, 0.95, LOW),
+      PLATE.x + Math.cos(ang) * r, y, PLATE.z + Math.sin(ang) * r);
+    m.scale.set(rand(0.9, 1.15), rand(0.75, 0.9), rand(0.9, 1.15));
+    m.rotation.set(rand(0, 6), rand(0, 6), rand(0, 6));
+    const blob = mesh(mayoBlobGeo, mayoBlobMat, m.position.x, m.position.y + 0.035, m.position.z);
+    blob.visible = false;
+    // level: レモンのかかり具合 / beer: ビールの染み具合 / mayo: マヨネーズの量（どれも 0〜1）
+    const k = { mesh: m, blob, level: 0, beer: 0, mayo: 0 };
+    m.userData.k = k;
+    karaage.push(k); karaMeshes.push(m);
+  }
+  (() => {
+    const y0 = TABLE_Y + 0.06;
+    addKaraage(0, 0, y0);
+    for (let i = 0; i < 6; i++) addKaraage(0.115, i / 6 * Math.PI * 2 + 0.3, y0);
+    for (let i = 0; i < 11; i++) addKaraage(0.215, i / 11 * Math.PI * 2, y0);
+    for (let i = 0; i < 5; i++) addKaraage(0.1, i / 5 * Math.PI * 2 + 0.9, y0 + 0.075);
+    addKaraage(0, 0, y0 + 0.145);
+  })();
+
+  function paintKaraage(k) {
+    const m = k.mesh.material;
+    m.color.copy(KARA_COLOR.base).lerp(KARA_COLOR.lemon, k.level).lerp(KARA_COLOR.beer, k.beer * 0.75);   // ビールでべちゃべちゃ
+    m.roughness = lerp(0.95, 0.3, Math.max(k.level, k.beer));
+    const s = 0.4 + 0.8 * k.mayo;
+    k.blob.visible = k.mayo > 0.02;
+    k.blob.scale.set(s, s * 0.6, s);
+  }
+  function resetKaraage() {
+    karaage.forEach(k => { k.level = 0; k.beer = 0; k.mayo = 0; paintKaraage(k); });
+  }
+
+  // =====================================================================
+  //  手に持てるもの：レモン・ビール・マヨネーズ・M5Stack
+  // =====================================================================
+  const HOLD_Y = TABLE_Y + 0.15;      // からあげの外で持っているときの高さ
+
+  // --- レモン ---
+  const lemonSkin = std(0xffd91f, 0.45, { side: THREE.DoubleSide });
+  const lemonFlesh = std(0xfff3a0, 0.3, { side: THREE.DoubleSide });
+  function makeLemon() {
+    const outer = group(0, 0, 0), wedge = group(0, 0, 0, outer), r = 0.036;
+    outer.rotation.order = 'YXZ';
+    mesh(new THREE.SphereGeometry(r, 5, 6, 0, Math.PI / 2), lemonSkin, 0, 0, 0, wedge);
+    mesh(new THREE.CircleGeometry(r, 6, Math.PI / 2, Math.PI), lemonFlesh, 0, 0, 0, wedge);
+    mesh(new THREE.CircleGeometry(r, 6, Math.PI / 2, Math.PI), lemonFlesh, 0, 0, 0, wedge).rotation.y = Math.PI / 2;
+    wedge.scale.y = 1.45;
+    wedge.rotation.y = Math.PI / 4;   // 皮を +z に向ける
+    return outer;
+  }
+  const lemonPick = meshesOf(lemonPlate);
+  for (let i = 0; i < 4; i++) {
+    const lm = makeLemon(), a = i / 4 * Math.PI * 2 + 0.4;
+    lm.position.set(LEMON_PLATE.x + Math.cos(a) * 0.06, TABLE_Y + 0.02, LEMON_PLATE.z + Math.sin(a) * 0.06);
+    lm.rotation.set(-Math.PI / 2, -a, 0);
+    lemonPick.push(...meshesOf(lm));
+  }
+  const heldLemon = makeLemon();
+  heldLemon.visible = false;
+  meshesOf(heldLemon).forEach(o => { o.receiveShadow = false; });
+
+  // --- ビール ---
+  function makeMug(x, z) {
+    const g = group(x, TABLE_Y, z);
+    mesh(new THREE.CylinderGeometry(0.045, 0.04, 0.13, 10), std(0xf0a81e, 0.2, { transparent: true, opacity: 0.85 }), 0, 0.065, 0, g);
+    mesh(new THREE.CylinderGeometry(0.046, 0.046, 0.03, 10), std(0xffffff, 0.9), 0, 0.145, 0, g);
+    mesh(new THREE.TorusGeometry(0.03, 0.008, 5, 8), std(0xe8e8e8, 0.3), 0.05, 0.075, 0, g);
+    return g;
+  }
+  const myMug = makeMug(-0.5, 0.25), theirMug = makeMug(0.45, -0.3);
+  const mugPick = [];
+  [myMug, theirMug].forEach(g => meshesOf(g).forEach(o => { o.userData.mug = g; mugPick.push(o); }));
+  const heldMug = makeMug(0, 0);
+  heldMug.visible = false;
+  let takenMug = myMug;      // いま（または最後に）手に取ったジョッキ
+
+  // --- マヨネーズ ---
+  function makeMayo(x, z) {
+    const g = group(x, TABLE_Y, z), bottle = std(0xfff1c2, 0.5);
+    mesh(new THREE.CylinderGeometry(0.03, 0.034, 0.1, 8), bottle, 0, 0.05, 0, g);
+    mesh(new THREE.CylinderGeometry(0.012, 0.03, 0.03, 8), bottle, 0, 0.115, 0, g);
+    mesh(new THREE.CylinderGeometry(0.008, 0.014, 0.03, 6), std(0xd8302a, 0.5), 0, 0.142, 0, g);
+    return g;
+  }
+  const myMayo = makeMayo(0.26, 0.42);
+  const mayoPick = meshesOf(myMayo);
+  const heldMayo = makeMayo(0, 0);
+  heldMayo.visible = false;
+
+  // --- M5Stack（画面に顔が出ている）。持てるが、かけることはできない ---
+  const m5 = (() => {
+    const g = group(0, 0, 0), W = 0.1;
+    mesh(new THREE.BoxGeometry(W, 0.018, W), std(0x2b2b30, 0.5), 0, 0.024, 0, g);
+    mesh(new THREE.BoxGeometry(W, 0.015, W), std(0xd8302a, 0.6), 0, 0.0075, 0, g);       // 下段のモジュール
+    const face = canvasTexture(320, 240, x => {
+      x.fillStyle = '#000'; x.fillRect(0, 0, 320, 240);
+      x.fillStyle = '#fff';
+      x.beginPath(); x.arc(90, 95, 13, 0, Math.PI * 2); x.arc(230, 95, 13, 0, Math.PI * 2); x.fill();
+      x.fillRect(120, 150, 80, 7);
+    });
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(W * 0.74, W * 0.555), new THREE.MeshBasicMaterial({ map: face }));
+    screen.rotation.x = -Math.PI / 2; screen.position.set(0, 0.0335, -W * 0.1);
+    g.add(screen);
+    const btnMat = std(0x55555c, 0.5);
+    [-1, 0, 1].forEach(i => mesh(new THREE.BoxGeometry(W * 0.16, 0.004, W * 0.08), btnMat, i * W * 0.26, 0.034, W * 0.38, g));
+    return g;
+  })();
+  const m5Pick = meshesOf(m5);
+  function m5Home() { m5.position.set(-0.5, TABLE_Y + 0.012, -0.12); m5.rotation.set(0.3, 0.35, 0); }
+  m5Home();
+
+  // =====================================================================
+  //  相手キャラ
+  //  どの外見も { g, body, head, setAngry, eyes, foam } を返す。
+  //  よそ見などの状態は外見と切り離して ai（後述）に持つ。
+  // =====================================================================
+  const OPP_Z = -0.95;
+
+  function makeRig(neckY) {
+    const g = group(0, 0, OPP_Z), body = group(0, 0, 0, g), head = group(0, neckY, 0, g);
+    head.rotation.order = 'YXZ';      // 首振り（yaw）→ うつむき（pitch）の順
+    return { g, body, head };
+  }
+  // 楕円体の頭を作り、顔のパーツを置くための「表面の z」を返す関数を返す
+  function addHead(head, mat, cy, [a, b, c], [wSeg, hSeg], inset) {
+    mesh(new THREE.SphereGeometry(1, wSeg, hSeg), mat, 0, cy, 0, head).scale.set(a, b, c);
+    return (x, y) => {
+      const dx = x / a, dy = (y - cy) / b;
+      return c * Math.sqrt(Math.max(0, 1 - dx * dx - dy * dy)) - inset;
+    };
+  }
+  // 共通の仕上げ：頭にかけられたビールの泡
+  const foamMat = std(0xf6c34a, 0.35, LOW);
+  function finishChar(rig, setAngry, eyes, topY) {
+    const foam = mesh(lumpGeo(0.1, 0.8), foamMat, 0, topY, 0, rig.head);
+    foam.visible = false;
+    setAngry(false);
+    return { g: rig.g, body: rig.body, head: rig.head, setAngry, eyes, foam };
+  }
+
+  // --- からあげ帝国閣下：白いねこ・ベレー帽・にっこり目・パイプ・KARAAGE Tシャツ ---
+  function makeKakka() {
+    const white = std(0xfbfaf6, 0.9, LOW), tee = std(0x1c1c1f, 0.9, LOW), beretMat = std(0xe2552b, 0.8, LOW);
+    const ink = std(0x1a1a1a, 0.6), pipeMat = std(0x8a4b2a, 0.5, LOW);
+    const rig = makeRig(1.15), { body, head } = rig;
+
+    // 胴体（Tシャツ）
+    const R = 0.2, ZS = 0.78;
+    mesh(new THREE.CylinderGeometry(R, R * 1.08, 0.48, 8), tee, 0, 0.9, 0, body).scale.z = ZS;
+    mesh(new THREE.SphereGeometry(R, 8, 4), tee, 0, 1.13, 0, body).scale.set(1.12, 0.42, ZS);
+    mesh(new THREE.CylinderGeometry(0.075, 0.085, 0.08, 6), white, 0, 1.17, 0, body);
+    const logoTex = canvasTexture(512, 160, g => {
+      g.fillStyle = '#fff'; g.font = '900 104px Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText('KARAAGE', 256, 84, 500);
+    });
+    const logoGeo = new THREE.PlaneGeometry(0.26, 0.081, 4, 1), lp = logoGeo.attributes.position;
+    for (let i = 0; i < lp.count; i++) {      // 胸のカーブに沿わせる
+      const x = lp.getX(i);
+      lp.setZ(i, ZS * Math.sqrt(R * R * 1.1 - x * x) + 0.006);
+    }
+    const logo = new THREE.Mesh(logoGeo, new THREE.MeshBasicMaterial({ map: logoTex, transparent: true }));
+    logo.position.set(0, 0.99, 0);
+    body.add(logo);
+    // 腕：黒い袖 → 白い腕 → テーブルに置いた手
+    SIDES.forEach(sd => {
+      const a = vec(sd * 0.2, 1.11, 0), e = vec(sd * 0.29, 0.96, 0.08), h = vec(sd * 0.2, 0.8, 0.44);
+      tube(a, e, 0.062, tee, body);
+      mesh(new THREE.SphereGeometry(0.062, 6, 4), tee, a.x, a.y, a.z, body);
+      mesh(new THREE.SphereGeometry(0.048, 6, 4), white, e.x, e.y, e.z, body);
+      tube(e, h, 0.046, white, body);
+      mesh(new THREE.SphereGeometry(0.06, 6, 4), white, h.x, h.y, h.z, body).scale.set(1.1, 0.8, 1.2);
+    });
+
+    // 頭・耳・ベレー帽
+    const HY = 0.2, HB = 0.2;
+    const fz = addHead(head, white, HY, [0.245, HB, 0.21], [10, 7], 0.003);
+    SIDES.forEach(sd => {
+      const ear = mesh(new THREE.ConeGeometry(0.075, 0.17, 4), white, sd * 0.155, HY + 0.185, 0, head);
+      ear.rotation.z = -sd * 0.42; ear.scale.z = 0.7;
+    });
+    const beret = group(0.02, HY + 0.185, 0, head);
+    beret.rotation.set(-0.12, 0, -0.1);
+    mesh(new THREE.SphereGeometry(0.135, 8, 4), beretMat, 0, 0, 0, beret).scale.set(1.12, 0.34, 1);
+    mesh(new THREE.CylinderGeometry(0.006, 0.008, 0.045, 4), beretMat, 0.01, 0.06, 0, beret).rotation.z = -0.3;
+
+    // 顔：ふだんはにっこり目（∩）。怒ると赤く光る目とつり上がった眉に変わる
+    const happy = [], angry = [];
+    const EX = 0.082, EY = HY + 0.035;
+    SIDES.forEach(sd => {
+      const eye = mesh(new THREE.TorusGeometry(0.03, 0.0055, 4, 5, Math.PI), ink, sd * EX, EY, fz(EX, EY), head);
+      eye.rotation.y = sd * 0.3; happy.push(eye);
+      const glare = mesh(new THREE.SphereGeometry(0.024, 6, 4), std(0x1a1a1a, 0.4, { emissive: 0xff2200, emissiveIntensity: 1.2 }), sd * EX, EY, fz(EX, EY), head);
+      glare.scale.z = 0.4; angry.push(glare);
+      const brow = mesh(new THREE.BoxGeometry(0.085, 0.017, 0.01), std(0xe8302a, 0.6), sd * EX, EY + 0.055, fz(EX, EY + 0.055) + 0.004, head);
+      brow.rotation.z = sd * 0.5; angry.push(brow);
+    });
+    mesh(new THREE.TorusGeometry(0.011, 0.004, 3, 3, Math.PI), ink, 0.004, HY - 0.012, fz(0, HY - 0.012), head).rotation.z = -Math.PI / 2;   // 鼻
+    const mouth = mesh(new THREE.TorusGeometry(0.05, 0.005, 4, 5, Math.PI), ink, 0, HY - 0.035, fz(0, HY - 0.06) - 0.004, head);
+    // パイプ
+    const pA = vec(0.035, HY - 0.075, fz(0.035, HY - 0.075) - 0.01), pB = vec(0.125, HY - 0.135, 0.265);
+    tube(pA, pB, 0.009, pipeMat, head);
+    mesh(new THREE.CylinderGeometry(0.03, 0.024, 0.055, 6), pipeMat, pB.x + 0.012, pB.y + 0.012, pB.z + 0.008, head);
+    mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.004, 6), std(0x2a1408, 0.9), pB.x + 0.012, pB.y + 0.041, pB.z + 0.008, head);
+
+    function setAngry(on) {
+      happy.forEach(o => { o.visible = !on; });
+      angry.forEach(o => { o.visible = on; });
+      mouth.rotation.z = on ? 0 : Math.PI;                 // にっこり ⇔ への字
+      mouth.position.y = HY - (on ? 0.095 : 0.035);
+    }
+    return finishChar(rig, setAngry, SIDES.map(sd => vec(sd * EX, EY, 0.2)), HY + HB + 0.02);
+  }
+
+  // --- スーツの男。色・ネクタイ・髪・メガネ・ポケットチーフを変えて2人作る ---
+  function makeSuit(c) {
+    const suit = std(c.suit, 0.85, LOW), shirt = std(0xf4f4f0, 0.8, LOW), skin = std(0xeec3a0, 0.8, LOW);
+    const hairMat = std(c.hair, 0.8, LOW), tieMat = std(c.tie, 0.6, LOW), dark = std(0x1a1a1a, 0.6);
+    const rig = makeRig(1.25), { body, head } = rig;
+
+    // ジャケット（正面が平らな面になるよう 1/16 回転）
+    const R = 0.2, ZS = 0.75, FRONT = R * 1.06 * Math.cos(Math.PI / 8) * ZS + 0.004;
+    const jacket = mesh(new THREE.CylinderGeometry(R, R * 1.06, 0.5, 8), suit, 0, 0.9, 0, body);
+    jacket.rotation.y = Math.PI / 8; jacket.scale.z = ZS;
+    mesh(new THREE.SphereGeometry(R, 8, 4), suit, 0, 1.13, 0, body).scale.set(1.28, 0.4, 0.82);
+    // シャツの V ゾーン
+    const vGeo = new THREE.BufferGeometry();
+    vGeo.setAttribute('position', new THREE.Float32BufferAttribute([-0.065, 1.2, FRONT, 0, 0.96, FRONT, 0.065, 1.2, FRONT], 3));
+    vGeo.computeVertexNormals();
+    mesh(vGeo, shirt, 0, 0, 0, body);
+    // ネクタイ
+    mesh(new THREE.BoxGeometry(0.036, 0.03, 0.012), tieMat, 0, 1.17, FRONT + 0.006, body);
+    mesh(new THREE.BoxGeometry(0.034, 0.17, 0.008), tieMat, 0, 1.075, FRONT + 0.005, body);
+    mesh(new THREE.BoxGeometry(0.026, 0.026, 0.008), tieMat, 0, 0.99, FRONT + 0.005, body).rotation.z = Math.PI / 4;
+    if (c.square) mesh(new THREE.BoxGeometry(0.04, 0.018, 0.008), shirt, 0.098, 1.04, FRONT - 0.016, body).rotation.set(0, 0.5, 0.15);
+    // 首と襟
+    mesh(new THREE.CylinderGeometry(0.052, 0.058, 0.1, 6), skin, 0, 1.22, 0, body);
+    mesh(new THREE.CylinderGeometry(0.066, 0.072, 0.04, 6), shirt, 0, 1.185, 0, body);
+    // 腕：袖 → カフス → 手
+    SIDES.forEach(sd => {
+      const a = vec(sd * 0.225, 1.11, 0), e = vec(sd * 0.3, 0.93, 0.1), w = vec(sd * 0.215, 0.815, 0.38), h = vec(sd * 0.2, 0.795, 0.44);
+      tube(a, e, 0.058, suit, body); tube(e, w, 0.05, suit, body);
+      mesh(new THREE.SphereGeometry(0.058, 6, 4), suit, a.x, a.y, a.z, body);
+      mesh(new THREE.SphereGeometry(0.052, 6, 4), suit, e.x, e.y, e.z, body);
+      tube(w, h, 0.043, shirt, body);
+      mesh(new THREE.SphereGeometry(0.05, 6, 4), skin, h.x, h.y - 0.005, h.z + 0.03, body).scale.set(1, 0.75, 1.2);
+    });
+
+    // 頭と髪（後ろに流した短髪）
+    const HY = 0.19, HA = 0.135, HB = 0.175, HC = 0.15;
+    const fz = addHead(head, skin, HY, [HA, HB, HC], [8, 6], 0.004);
+    const hair = mesh(new THREE.SphereGeometry(1, 8, 4, 0, Math.PI * 2, 0, Math.PI * 0.5), hairMat, 0, HY + 0.035, -0.012, head);
+    hair.scale.set(HA * 1.06, HB * 0.92, HC * 1.08); hair.rotation.x = -0.32;
+    const quiff = mesh(new THREE.SphereGeometry(1, 6, 3), hairMat, c.part * 0.02, HY + 0.15, 0.05, head);
+    quiff.scale.set(HA * 0.8, 0.035 * c.volume, 0.085); quiff.rotation.set(-0.25, 0, c.part * 0.12);
+    SIDES.forEach(sd => {      // 耳
+      mesh(new THREE.SphereGeometry(0.028, 5, 4), skin, sd * (HA + 0.004), HY - 0.01, -0.005, head).scale.set(0.5, 1, 0.7);
+    });
+
+    // 顔
+    const EX = 0.05, EY = HY + 0.02, eyeWhite = std(0xffffff, 0.4);
+    const brows = SIDES.map(sd => {
+      mesh(new THREE.SphereGeometry(0.017, 6, 4), eyeWhite, sd * EX, EY, fz(EX, EY) - 0.004, head).scale.set(1.25, 0.8, 0.6);
+      mesh(new THREE.SphereGeometry(0.009, 5, 4), dark, sd * EX, EY, fz(EX, EY) + 0.004, head);
+      const b = mesh(new THREE.BoxGeometry(0.046, 0.009, 0.008), hairMat, sd * EX, EY + 0.032, fz(EX, EY + 0.032) + 0.004, head);
+      b.userData.side = sd;
+      return b;
+    });
+    mesh(new THREE.ConeGeometry(0.016, 0.05, 4), skin, 0, HY - 0.02, fz(0, HY - 0.02) + 0.006, head).rotation.x = 0.35;   // 鼻
+    const mouth = mesh(new THREE.BoxGeometry(0.05, 0.008, 0.008), std(0x9a4a42, 0.6), 0, HY - 0.085, fz(0, HY - 0.085) + 0.003, head);
+    if (c.glasses) {
+      const gz = fz(EX, EY) + 0.014;
+      SIDES.forEach(sd => {      // 4角形のトーラス＝四角いフレーム
+        const frame = mesh(new THREE.TorusGeometry(0.033, 0.0045, 4, 4), dark, sd * EX, EY, gz, head);
+        frame.rotation.z = Math.PI / 4; frame.scale.set(1.15, 0.85, 1);
+        tube(vec(sd * (EX + 0.035), EY, gz), vec(sd * (HA + 0.002), EY, 0), 0.003, dark, head);
+      });
+      mesh(new THREE.BoxGeometry(0.03, 0.005, 0.005), dark, 0, EY + 0.004, gz, head);
+    }
+
+    function setAngry(on) {
+      brows.forEach(b => { b.rotation.z = b.userData.side * (on ? 0.55 : -0.06); });
+      mouth.scale.set(on ? 0.8 : 1, on ? 3.5 : 1, 1);
+    }
+    return finishChar(rig, setAngry, SIDES.map(sd => vec(sd * EX, EY, fz(EX, EY))), HY + HB - 0.01);
+  }
+
+  // --- ギャル：日焼け肌・金髪ロング・フープピアス・ハイビスカス・オフショルのトップス ---
+  function makeGal() {
+    const skin = std(0xc98d5e, 0.75, LOW), hairMat = std(0xf2d272, 0.7, LOW), top = std(0xff4f9a, 0.8, LOW);
+    const gold = std(0xe8b93a, 0.35, LOW), dark = std(0x1a1a1a, 0.6);
+    const rig = makeRig(1.24), { body, head } = rig;
+
+    // オフショルのトップスと肩
+    const R = 0.165, ZS = 0.78;
+    mesh(new THREE.CylinderGeometry(R, R * 0.92, 0.42, 8), top, 0, 0.88, 0, body).scale.z = ZS;
+    mesh(new THREE.CylinderGeometry(R * 1.2, R * 1.12, 0.07, 8), top, 0, 1.06, 0, body).scale.z = ZS;      // 折り返しのフリル
+    mesh(new THREE.SphereGeometry(R, 8, 4), skin, 0, 1.11, 0, body).scale.set(1.22, 0.36, 0.78);
+    mesh(new THREE.CylinderGeometry(0.042, 0.048, 0.1, 6), skin, 0, 1.2, 0, body);
+    mesh(new THREE.TorusGeometry(0.06, 0.005, 3, 8), gold, 0, 1.155, 0.012, body).rotation.x = Math.PI / 2 - 0.35;   // ネックレス
+    SIDES.forEach(sd => {
+      const a = vec(sd * 0.185, 1.11, 0), e = vec(sd * 0.25, 0.93, 0.1), h = vec(sd * 0.17, 0.8, 0.44);
+      tube(a, e, 0.04, skin, body); tube(e, h, 0.034, skin, body);
+      mesh(new THREE.SphereGeometry(0.042, 6, 4), skin, a.x, a.y, a.z, body);
+      mesh(new THREE.SphereGeometry(0.036, 6, 4), skin, e.x, e.y, e.z, body);
+      mesh(new THREE.SphereGeometry(0.043, 6, 4), skin, h.x, h.y, h.z + 0.02, body).scale.set(1, 0.7, 1.25);
+      // 派手なネイルとバングル
+      mesh(new THREE.BoxGeometry(0.05, 0.008, 0.022), top, h.x, h.y + 0.012, h.z + 0.075, body);
+      const bangle = mesh(new THREE.TorusGeometry(0.038, 0.006, 3, 8), gold, 0, 0, 0, body);
+      bangle.position.copy(e).lerp(h, 0.78);
+      bangle.lookAt(body.localToWorld(h.clone()));
+    });
+
+    // 頭
+    const HY = 0.18, HA = 0.128, HB = 0.16, HC = 0.142;
+    const fz = addHead(head, skin, HY, [HA, HB, HC], [8, 6], 0.004);
+    // 髪：盛ったトップ＋流した前髪＋後ろ髪＋肩まで落ちる巻き髪
+    const cap = mesh(new THREE.SphereGeometry(1, 8, 4, 0, Math.PI * 2, 0, Math.PI * 0.55), hairMat, 0, HY + 0.03, -0.012, head);
+    cap.scale.set(HA * 1.12, HB * 0.98, HC * 1.14); cap.rotation.x = -0.3;
+    mesh(lumpGeo(0.11, 0.7), hairMat, 0, HY + 0.15, -0.035, head).scale.set(1.2, 0.8, 1.05);
+    mesh(lumpGeo(0.07, 0.7), hairMat, -0.035, HY + 0.125, 0.09, head).scale.set(1.25, 0.4, 0.6);
+    mesh(lumpGeo(0.13, 0.6), hairMat, 0, HY - 0.08, -0.09, head).scale.set(1.15, 1.5, 0.6);
+    const CURLS = [[0.15, -0.01, 0.0, 0.05], [0.165, -0.1, 0.03, 0.05], [0.155, -0.19, 0.06, 0.045], [0.135, -0.27, 0.09, 0.038]];
+    SIDES.forEach(sd => {
+      CURLS.forEach(([x, dy, z, r]) => { mesh(lumpGeo(r, 0.9), hairMat, sd * x, HY + dy, z, head).scale.y = 1.25; });
+      // フープピアス
+      mesh(new THREE.TorusGeometry(0.03, 0.004, 3, 8), gold, sd * (HA + 0.012), HY - 0.07, 0.04, head).rotation.y = Math.PI / 2 - sd * 0.5;
+    });
+    // ハイビスカス
+    const flower = group(0.105, HY + 0.11, 0.075, head), petalMat = std(0xe8203a, 0.6, LOW);
+    flower.rotation.set(-0.3, 0.6, 0);
+    for (let i = 0; i < 5; i++) {
+      mesh(new THREE.SphereGeometry(0.022, 5, 3), petalMat, Math.cos(i * 1.257) * 0.024, Math.sin(i * 1.257) * 0.024, 0, flower).scale.z = 0.35;
+    }
+    mesh(new THREE.SphereGeometry(0.009, 5, 3), gold, 0, 0, 0.012, flower);
+
+    // 顔：白いアイシャドウ、太いつけまつげ、チーク、グロスの唇
+    const EX = 0.047, EY = HY + 0.015;
+    const shadowMat = std(0xf4f4ff, 0.4), eyeWhite = std(0xffffff, 0.4), browMat = std(0x9a7a3a, 0.7), cheekMat = std(0xff8fa8, 0.7);
+    const brows = SIDES.map(sd => {
+      mesh(new THREE.SphereGeometry(0.024, 6, 4), shadowMat, sd * EX, EY + 0.004, fz(EX, EY) - 0.009, head).scale.set(1.25, 0.95, 0.5);
+      mesh(new THREE.SphereGeometry(0.017, 6, 4), eyeWhite, sd * EX, EY, fz(EX, EY) - 0.002, head).scale.set(1.25, 0.9, 0.6);
+      mesh(new THREE.SphereGeometry(0.0095, 5, 4), dark, sd * EX, EY, fz(EX, EY) + 0.006, head);
+      mesh(new THREE.BoxGeometry(0.05, 0.008, 0.012), dark, sd * (EX + 0.004), EY + 0.015, fz(EX, EY + 0.015) + 0.007, head).rotation.z = sd * 0.22;
+      mesh(new THREE.SphereGeometry(0.02, 5, 3), cheekMat, sd * 0.075, HY - 0.04, fz(0.075, HY - 0.04) - 0.006, head).scale.z = 0.3;
+      const b = mesh(new THREE.BoxGeometry(0.042, 0.005, 0.006), browMat, sd * EX, EY + 0.04, fz(EX, EY + 0.04) + 0.004, head);
+      b.userData.side = sd;
+      return b;
+    });
+    mesh(new THREE.ConeGeometry(0.012, 0.035, 4), skin, 0, HY - 0.02, fz(0, HY - 0.02) + 0.005, head).rotation.x = 0.35;   // 鼻
+    const mouth = mesh(new THREE.BoxGeometry(0.04, 0.013, 0.01), std(0xffb3c8, 0.3), 0, HY - 0.08, fz(0, HY - 0.08) + 0.003, head);
+
+    function setAngry(on) {
+      brows.forEach(b => { b.rotation.z = b.userData.side * (on ? 0.6 : 0.12); });
+      mouth.scale.set(on ? 0.8 : 1, on ? 2.6 : 1, 1);
+    }
+    return finishChar(rig, setAngry, SIDES.map(sd => vec(sd * EX, EY, fz(EX, EY))), HY + 0.24);
+  }
+
+  // 外見の一覧。hidden はメニューに出さない隠しキャラ（M5Stack を頭にかぶせると入れ替わる）
+  const CHARACTERS = [
+    { name: 'からあげ帝国閣下', hidden: true, build: makeKakka },
+    { name: '黒スーツの男', build: () => makeSuit({ suit: 0x1c1c20, tie: 0x2a2a30, hair: 0x7d4a2c, part: -1, volume: 1, glasses: false, square: false }) },
+    { name: '紺スーツの男（メガネ）', build: () => makeSuit({ suit: 0x1f2f58, tie: 0xc8242e, hair: 0x2a1c14, part: 1, volume: 1.5, glasses: true, square: true }) },
+    { name: 'ギャル', build: makeGal }
+  ];
+  const SECRET_CHAR = 0, DEFAULT_CHAR = 1;
+  const chars = CHARACTERS.map(c => c.build());
+
+  // 相手の手元のスマホ（よそ見の種類が「スマホ」のとき画面が光る）
+  const phone = mesh(new THREE.BoxGeometry(0.07, 0.008, 0.14), std(0x15171c, 0.3), 0, TABLE_Y + 0.004, OPP_Z + 0.5);
+  const phoneScreenMat = new THREE.MeshStandardMaterial({ color: 0x0a0c10, emissive: 0x66bbff, emissiveIntensity: 0, roughness: 0.2 });
+  const phoneScreen = new THREE.Mesh(new THREE.PlaneGeometry(0.06, 0.125), phoneScreenMat);
+  phoneScreen.rotation.x = -Math.PI / 2; phoneScreen.position.y = 0.0045;
+  phone.add(phoneScreen);
+
+  // =====================================================================
+  //  演出用のオブジェクト：しずく・巨大からあげ・ビーム
+  // =====================================================================
+  const DROP_MAT = {
+    lemon: new THREE.MeshBasicMaterial({ color: 0xfff27a }),
+    beer: new THREE.MeshBasicMaterial({ color: 0xf0a81e }),
+    mayo: new THREE.MeshBasicMaterial({ color: 0xfff6d8 })
+  };
+  const DROP_FLOOR = TABLE_Y + 0.05, HEAD_DROP_FLOOR = 1.52;
+  const dropGeo = new THREE.SphereGeometry(0.006, 4, 3);
+  const drops = [];
+  for (let i = 0; i < 60; i++) {
+    const m = new THREE.Mesh(dropGeo, DROP_MAT.lemon);
+    m.visible = false;
+    scene.add(m);
+    drops.push({ mesh: m, vx: 0, vy: 0, vz: 0, floor: DROP_FLOOR });
+  }
+  function spawnDrop(pos, kind, floor = DROP_FLOOR) {
+    const d = drops.find(o => !o.mesh.visible);
+    if (!d) return;
+    d.mesh.visible = true;
+    d.mesh.material = DROP_MAT[kind];
+    d.floor = floor;
+    d.mesh.position.set(pos.x + rand(-0.012, 0.012), pos.y - 0.03, pos.z + rand(-0.012, 0.012));
+    d.vy = rand(-0.3, 0); d.vx = rand(-0.05, 0.05); d.vz = rand(-0.05, 0.05);
+  }
+  function updateDrops(dt) {
+    drops.forEach(d => {
+      if (!d.mesh.visible) return;
+      d.vy -= 4 * dt;
+      d.mesh.position.x += d.vx * dt; d.mesh.position.y += d.vy * dt; d.mesh.position.z += d.vz * dt;
+      if (d.mesh.position.y < d.floor) d.mesh.visible = false;
+    });
+  }
+
+  const bigKara = mesh(lumpGeo(0.45, 1, 2), std(0xb06a25, 0.95, LOW), 0, 5, 0);
+  bigKara.visible = false;
+
+  const beamMat = new THREE.MeshBasicMaterial({ color: 0xff2200 });
+  const beams = SIDES.map(sd => {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 1, 8), beamMat);
+    m.visible = false;
+    m.userData.end = vec(sd * 0.05, 1.22, 1.0);      // カメラのすぐ下
+    scene.add(m);
+    return m;
+  });
+  function aimBeams(char, thick) {
+    beams.forEach((m, i) => {
+      stretchBetween(m, char.head.localToWorld(char.eyes[i].clone()), m.userData.end, thick);
+      m.visible = true;
+    });
+  }
+
+  // 小さいパーツは影を落とさない（影パスの描画回数を減らす）。全モデルを作り終えてから実行する
+  scene.traverse(o => {
+    if (!o.isMesh || !o.castShadow) return;
+    if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+    if (o.geometry.boundingSphere.radius * Math.max(o.scale.x, o.scale.y, o.scale.z) < 0.04) o.castShadow = false;
+  });
+
+  // =====================================================================
+  //  ゲームの状態
+  // =====================================================================
+  const game = {
+    mode: 'title',        // 'title' | 'play' | 'caught' | 'over'
+    paused: false,        // 設定メニューを開いている間
+    score: 0, best: parseInt(store.get(KEYS.best), 10) || 0,
+    round: 1, time: 0,
+    tool: null,           // 手に持っているもの：null | 'lemon' | 'beer' | 'mayo' | 'm5'
+    amount: 0,            // 持っているものの残量（0〜1）
+    squeezing: false,     // 長押し中
+    mult: 1,
+    caughtT: 0, exec: 'crush', execSfx: false
+  };
+  // 相手の状態（外見を切り替えても引き継ぐ）
+  const ai = {
+    state: 'look',        // 'look' | 'fake' | 'turnAway' | 'away' | 'tell' | 'turnBack'
+    t: 1, dur: 1,         // いまの状態の残り時間と長さ
+    att: 1,               // 注目度。1 = こちらを見ている、0 = 完全によそ見
+    type: 'left',         // よそ見の種類（AWAY のキー）
+    fakeOk: false,
+    say: '', sayT: 0,
+    blindT: 0,            // ビールが目に入って見えない残り時間
+    wet: 0                // 頭の泡の量
+  };
+  const hand = vec(0, 0, 0);      // 持っているものの位置
+  let tilt = 0;                   // ジョッキ・マヨネーズの傾き（0〜1）
+  let target = null;              // いま狙っているからあげ
+  let aimed = null;               // カーソルの真下にあるからあげ
+  let headAim = false;            // 相手の頭を狙っている
+  let dropTimer = 0, lossShown = 0;
+
+  let charSel = DEFAULT_CHAR, lastChar = DEFAULT_CHAR, opp = chars[DEFAULT_CHAR];
+  let muted = store.get(KEYS.mute) === '1';
+
+  const difficulty = () => Math.min(1, game.time / 100 + (game.round - 1) * 0.2);
+  const isSeen = () => ai.att > RULES.seeThreshold;
+
+  // =====================================================================
+  //  HUD
+  // =====================================================================
+  const el = {
+    hud: $('hud'), score: $('score'), best: $('best'), hint: $('hint'), gauge: $('gauge'),
+    mult: $('mult'), bubble: $('bubble'), flash: $('flash'),
+    title: $('title'), over: $('over'), menu: $('menu')
+  };
+  el.best.textContent = game.best;
+
+  const projV = new THREE.Vector3();
+  function toScreen(v) {
+    projV.copy(v).project(camera);
+    return { x: (projV.x + 1) / 2 * window.innerWidth, y: (1 - projV.y) / 2 * window.innerHeight };
+  }
+  // 浮かんで消える文字。kind: '' | 'big' | 'neg'
+  function popup(text, worldPos, kind = '') {
+    const s = toScreen(worldPos), d = document.createElement('div');
+    d.className = 'pop ' + kind; d.textContent = text;
+    d.style.left = s.x + 'px'; d.style.top = s.y + 'px';
+    el.hud.appendChild(d);
+    setTimeout(() => d.remove(), 900);
+  }
+  function flash(color, opacity) {
+    el.flash.style.background = color;
+    el.flash.style.opacity = opacity;
+  }
+  function addScore(n) {
+    game.score += n;
+    setText(el.score, String(Math.floor(game.score)));
+  }
+
+  const GAUGE_BG = { lemon: '', beer: 'linear-gradient(90deg, #e8920c, #ffd27a)', mayo: '#fff6d8' };
+  function hintText() {
+    switch (game.tool) {
+      case 'lemon': return target ? '長押しで搾る！（見られないように…）' : 'からあげの上にレモンを持っていこう';
+      case 'beer': return headAim ? '長押しで頭にビールをかける！（大減点・目つぶし）'
+        : target ? '長押しでビールをかける（減点！）' : 'からあげの上へ。右クリックでジョッキを戻す';
+      case 'mayo': return target ? '長押しでマヨネーズをかける（怒られない）' : 'からあげの上へ。右クリックでマヨネーズを戻す';
+      case 'm5': return 'M5Stack はかけられません（クリックで戻す）';
+      default: return '🍋 レモン・🍺 ビール・マヨネーズ をクリックして持とう';
+    }
+  }
+  function updateHud() {
+    if (game.mult > 1.05) {
+      setStyle(el.mult, 'display', 'block');
+      setText(el.mult, '×' + game.mult.toFixed(1));
+      setStyle(el.mult, 'fontSize', Math.round(26 + game.mult * 7) + 'px');
+      setStyle(el.mult, 'color', game.mult > 5 ? '#ff5a3c' : '#ffe45c');
+    } else setStyle(el.mult, 'display', 'none');
+
+    const hasGauge = game.tool in GAUGE_BG;
+    setStyle(el.gauge, 'width', (hasGauge ? Math.round(game.amount * 200) / 2 : 0) + '%');
+    setStyle(el.gauge, 'background', hasGauge ? GAUGE_BG[game.tool] : '');
+    setText(el.hint, hintText());
+    setStyle(cv, 'cursor', game.tool ? 'none' : '');
+  }
+
+  // =====================================================================
+  //  サウンド
+  // =====================================================================
+  let actx = null, squeezeGain = null;
+  function initAudio() {
+    if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+    try {
+      actx = new (window.AudioContext || window.webkitAudioContext)();
+      // 搾る音：ノイズをバンドパスに通して鳴らしっぱなしにし、音量だけ上げ下げする
+      const buf = actx.createBuffer(1, actx.sampleRate, actx.sampleRate), ch = buf.getChannelData(0);
+      for (let i = 0; i < ch.length; i++) ch[i] = Math.random() * 2 - 1;
+      const src = actx.createBufferSource(); src.buffer = buf; src.loop = true;
+      const f = actx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 3200; f.Q.value = 0.8;
+      squeezeGain = actx.createGain(); squeezeGain.gain.value = 0;
+      src.connect(f); f.connect(squeezeGain); squeezeGain.connect(actx.destination);
+      src.start();
+    } catch (e) { actx = null; }
+  }
+  function tone(freq, dur, type = 'sine', vol = 0.12, slideTo = 0, delayMs = 0) {
+    if (delayMs) { setTimeout(() => tone(freq, dur, type, vol, slideTo), delayMs); return; }
+    if (!actx || muted) return;
+    const o = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime;
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + dur);
+  }
+  const sfx = {
+    squeeze(on) { if (actx && squeezeGain) squeezeGain.gain.setTargetAtTime(on && !muted ? 0.06 : 0, actx.currentTime, 0.03); },
+    pick() { tone(520, 0.08, 'triangle', 0.1); },
+    done() { tone(880, 0.1, 'sine', 0.1); tone(1320, 0.14, 'sine', 0.1, 0, 70); },
+    scold() { tone(300, 0.25, 'square', 0.12, 150); },
+    caught() { tone(420, 0.7, 'sawtooth', 0.14, 70); },
+    gavel() { tone(140, 0.25, 'square', 0.2, 50); tone(140, 0.4, 'square', 0.2, 40, 260); },
+    secret() { tone(523, 0.12, 'square', 0.1); tone(784, 0.12, 'square', 0.1, 0, 110); tone(1047, 0.25, 'square', 0.1, 0, 220); },
+    exec(kind) {
+      if (kind === 'crush') { tone(90, 1.0, 'sawtooth', 0.22, 30); tone(50, 0.5, 'square', 0.3, 25, 950); }
+      else tone(2200, 1.1, 'sawtooth', 0.12, 180);
+    }
+  };
+
+  // =====================================================================
+  //  相手の AI とポーズ
+  // =====================================================================
+  // よそ見の種類ごとの首の向き
+  const AWAY = {
+    left: { yaw: 1.45, pitch: 0 },
+    right: { yaw: -1.45, pitch: 0 },
+    back: { yaw: 2.5, pitch: 0 },
+    phone: { yaw: 0, pitch: 0.85 },
+    sleep: { yaw: 0.3, pitch: 0.6 },
+    wipe: { yaw: 0, pitch: 0.45 }      // ビールが目に入って拭いている
+  };
+  const RANDOM_AWAY = ['left', 'right', 'back', 'phone', 'sleep'];
+
+  function say(text, seconds) { ai.say = text; ai.sayT = seconds; }
+  function turnBack() { ai.state = 'turnBack'; ai.t = ai.dur = lerp(0.45, 0.26, difficulty()); }
+
+  function updateAI(dt) {
+    const d = difficulty();
+    ai.wet = Math.max(0, ai.wet - dt * 0.08);
+    if (ai.blindT > 0) {
+      // 目が見えない間は何もできない。切れた直後は 'away' から合図を経て振り向く
+      ai.blindT -= dt;
+      ai.state = 'away'; ai.type = 'wipe'; ai.t = 0.15;
+      ai.att = Math.max(0, ai.att - dt * 6);
+      if (ai.blindT > 0) say('目が〜！！', 0.2); else say('やったな…！', 1.4);
+      return;
+    }
+    ai.t -= dt; ai.sayT -= dt;
+    switch (ai.state) {
+      case 'look':
+        ai.att = 1;
+        if (ai.t <= 0) {
+          ai.type = pick(RANDOM_AWAY);
+          if (ai.fakeOk && Math.random() < 0.12 + 0.25 * d) { ai.state = 'fake'; ai.t = ai.dur = 0.55; ai.fakeOk = false; }
+          else { ai.state = 'turnAway'; ai.t = ai.dur = 0.45; }
+        }
+        break;
+      case 'fake':
+        // ちょっとだけ首を動かして戻る（まだ見ている）
+        ai.att = 1 - 0.3 * Math.sin((1 - ai.t / ai.dur) * Math.PI);
+        if (ai.t <= 0) { ai.state = 'look'; ai.t = rand(0.4, 1.3); }
+        break;
+      case 'turnAway':
+        ai.att = Math.max(0, ai.t / ai.dur);
+        if (ai.t <= 0) {
+          ai.state = 'away';
+          if (ai.type === 'sleep') ai.t = rand(5, 8);                           // 居眠りは長いが、起きるのは一瞬
+          else if (Math.random() < 0.12 + 0.2 * d) ai.t = rand(0.45, 0.9);      // すぐ振り返る二度見
+          else ai.t = rand(lerp(2.8, 1.1, d), lerp(5.5, 2.6, d));
+        }
+        break;
+      case 'away':
+        ai.att = 0;
+        if (ai.t <= 0) {
+          if (ai.type === 'sleep') { ai.state = 'tell'; ai.t = 0.25; }
+          else if (Math.random() < d * 0.35) turnBack();      // 難しくなると合図なしで振り向く
+          else { ai.state = 'tell'; ai.t = lerp(0.6, 0.28, d); }
+        }
+        break;
+      case 'tell':
+        ai.att = 0;
+        if (ai.t <= 0) turnBack();
+        break;
+      case 'turnBack':
+        ai.att = 1 - Math.max(0, ai.t / ai.dur);
+        if (ai.t <= 0) {
+          ai.state = 'look'; ai.t = rand(lerp(1.2, 0.6, d), lerp(3.0, 2.2, d)); ai.fakeOk = true;
+          if (Math.random() < 0.35) say(pick(TAUNTS), 1.1);
+        }
+        break;
+    }
+  }
+
+  const bubblePos = new THREE.Vector3();
+  function bubbleText() {
+    if (game.mode === 'over' || game.mode === 'title') return '';
+    if (game.mode === 'caught') return '死刑！！';
+    if (ai.state === 'tell') return ai.type === 'sleep' ? 'ハッ！' : 'ん？';
+    if (ai.state === 'away' && ai.type === 'sleep') return 'Zzz…';
+    return ai.sayT > 0 ? ai.say : '';
+  }
+  // ai の状態を、いま表示している外見（opp）に反映する
+  function poseOpponent(now) {
+    const a = AWAY[ai.type], e = smooth(1 - ai.att);
+    const wobble = ai.state === 'tell' ? Math.sin(now * 32) * 0.05 : ai.type === 'wipe' ? Math.sin(now * 18) * 0.3 * e : 0;
+    const nod = ai.type === 'sleep' ? Math.sin(now * 2.2) * 0.1 * e : 0;
+    opp.head.rotation.y = a.yaw * e * 0.8 + wobble;
+    opp.head.rotation.x = a.pitch * e + Math.sin(now * 1.3) * 0.02 + nod;
+    opp.body.rotation.y = a.yaw * e * 0.2;
+    opp.foam.visible = ai.wet > 0.03;
+    opp.foam.scale.set(0.5 + ai.wet, 0.25 + ai.wet * 0.35, 0.5 + ai.wet);
+    phoneScreenMat.emissiveIntensity = (ai.type === 'phone' && ai.att < 0.9 && ai.state !== 'fake') ? 0.9 : 0;
+
+    const text = bubbleText();
+    if (text) {
+      const s = toScreen(bubblePos.set(opp.g.position.x + 0.2, 1.62, opp.g.position.z));
+      setText(el.bubble, text);
+      setStyle(el.bubble, 'left', Math.round(s.x) + 'px');
+      setStyle(el.bubble, 'top', Math.round(s.y) + 'px');
+      setStyle(el.bubble, 'display', 'block');
+    } else setStyle(el.bubble, 'display', 'none');
+  }
+
+  // =====================================================================
+  //  外見の切り替え
+  // =====================================================================
+  function selectChar(i) {
+    charSel = i; opp = chars[i];
+    chars.forEach((c, j) => { c.g.visible = j === i; });
+    if (!CHARACTERS[i].hidden) { lastChar = i; store.set(KEYS.char, i); }
+  }
+  // 隠しコマンド：M5Stack を相手の頭にかぶせると、からあげ帝国閣下と入れ替わる
+  function secretSwap() {
+    const toSecret = charSel !== SECRET_CHAR;
+    selectChar(toSecret ? SECRET_CHAR : lastChar);
+    popup(toSecret ? CHARACTERS[SECRET_CHAR].name + ' 降臨！' : CHARACTERS[charSel].name + ' に戻った', vec(0, 1.5, OPP_Z), 'big');
+    flash('#fff', 0.85);
+    setTimeout(() => { if (game.mode === 'play') el.flash.style.opacity = 0; }, 120);
+    setTimeout(() => { if (game.mode === 'play') el.flash.style.background = '#c00'; }, 320);
+    sfx.secret();
+  }
+  (() => {
+    const saved = parseInt(store.get(KEYS.char), 10);
+    selectChar(CHARACTERS[saved] && !CHARACTERS[saved].hidden ? saved : DEFAULT_CHAR);
+  })();
+
+  // =====================================================================
+  //  ゲームの進行
+  // =====================================================================
+  function startGame() {
+    Object.assign(game, { mode: 'play', paused: false, score: 0, round: 1, time: 0, mult: 1 });
+    Object.assign(ai, { state: 'look', t: 1.3, att: 1, type: 'left', fakeOk: false, sayT: 0, blindT: 0, wet: 0 });
+    putBack();
+    lossShown = 0;
+    resetKaraage(); addScore(0);
+    chars.forEach(c => { c.head.scale.setScalar(1); c.setAngry(false); });
+    drops.forEach(d => { d.mesh.visible = false; });
+    bigKara.visible = false;
+    beams.forEach(b => { b.visible = false; });
+    look.copy(CAM_LOOK);
+    [el.title, el.over, el.menu].forEach(o => o.classList.add('hidden'));
+    flash('#c00', 0);
+    initAudio();
+  }
+
+  function caught() {
+    Object.assign(game, { mode: 'caught', caughtT: RULES.caughtTime, squeezing: false, mult: 1, exec: Math.random() < 0.5 ? 'crush' : 'laser', execSfx: false });
+    setStyle(el.mult, 'display', 'none');
+    opp.setAngry(true);
+    sfx.squeeze(false); sfx.caught();
+    el.flash.style.opacity = 0.4;
+  }
+
+  function gameOver() {
+    game.mode = 'over';
+    const s = Math.floor(game.score), isNew = s > game.best;
+    if (isNew) { game.best = s; store.set(KEYS.best, s); }
+    el.best.textContent = game.best;
+    $('finalScore').textContent = s;
+    $('execName').textContent = EXECS[game.exec];
+    $('finalBest').textContent = isNew ? '🎉 ベスト更新！' : 'ベスト: ' + game.best;
+    el.over.classList.remove('hidden');
+    sfx.gavel();
+    setStyle(cv, 'cursor', '');
+  }
+
+  // =====================================================================
+  //  入力
+  // =====================================================================
+  const ndc = new THREE.Vector2(0, 0), ray = new THREE.Raycaster(), hit = new THREE.Vector3();
+
+  function setPointer(e) {
+    ndc.x = e.clientX / window.innerWidth * 2 - 1;
+    ndc.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  }
+  function take(tool, from, lift) {
+    game.tool = tool; game.amount = 1; tilt = 0;
+    hand.copy(from); hand.y += lift;
+    sfx.pick();
+  }
+  function tryPickUp() {
+    ray.setFromCamera(ndc, camera);
+    let h;
+    if (ray.intersectObjects(lemonPick).length) {
+      take('lemon', LEMON_PLATE, 0.08);
+    } else if ((h = ray.intersectObjects(mugPick)[0])) {
+      takenMug = h.object.userData.mug;      // 自分のジョッキでも相手のジョッキでも取れる
+      takenMug.visible = false;
+      take('beer', takenMug.position, 0.1);
+    } else if (ray.intersectObjects(mayoPick).length) {
+      myMayo.visible = false;
+      take('mayo', myMayo.position, 0.1);
+    } else if (ray.intersectObjects(m5Pick).length) {
+      take('m5', m5.position, 0.1);
+    }
+  }
+  // 持っているものを元の場所に戻す
+  function putBack() {
+    game.tool = null; game.squeezing = false;
+    myMug.visible = theirMug.visible = myMayo.visible = true;
+    m5Home();
+  }
+  function release() {
+    // 振り向きかけの瞬間に離したらボーナス
+    if (game.mode === 'play' && game.tool === 'lemon' && game.squeezing && ai.state === 'turnBack') {
+      const bonus = Math.round(RULES.nearMissBonus * game.mult);
+      addScore(bonus); popup('ギリギリセーフ！ +' + bonus, hand, 'big'); sfx.done();
+    }
+    game.squeezing = false;
+  }
+
+  cv.addEventListener('pointermove', setPointer);
+  cv.addEventListener('pointerdown', e => {
+    setPointer(e);
+    if (game.mode !== 'play') return;
+    if (e.button === 2) putBack();
+    else if (!game.tool) tryPickUp();
+    else if (game.tool === 'm5') {      // かけられないので、クリックで置く。頭の上なら隠しコマンド
+      if (headAim) secretSwap();
+      putBack();
+    } else game.squeezing = true;
+  });
+  window.addEventListener('pointerup', release);
+  window.addEventListener('pointercancel', release);
+  window.addEventListener('blur', release);
+  cv.addEventListener('contextmenu', e => e.preventDefault());
+  $('startBtn').addEventListener('click', startGame);
+  $('retryBtn').addEventListener('click', startGame);
+
+  // =====================================================================
+  //  設定メニュー
+  // =====================================================================
+  const charButtons = [];
+  CHARACTERS.forEach((c, i) => {
+    if (c.hidden) return;
+    const b = document.createElement('button');
+    b.className = 'choice'; b.textContent = c.name;
+    b.addEventListener('click', () => { selectChar(i); refreshMenu(); });
+    $('charChoices').appendChild(b);
+    charButtons.push({ button: b, index: i });
+  });
+  function refreshMenu() {
+    charButtons.forEach(({ button, index }) => button.classList.toggle('on', index === charSel));
+    $('soundBtn').textContent = muted ? '🔇 オフ' : '🔊 オン';
+    $('soundBtn').classList.toggle('on', !muted);
+  }
+  function openMenu() {
+    if (game.mode === 'caught') return;        // 処刑中は開けない
+    game.paused = true;
+    release();
+    refreshMenu();
+    el.menu.classList.remove('hidden');
+  }
+  function closeMenu() {
+    game.paused = false;
+    el.menu.classList.add('hidden');
+  }
+  $('gearBtn').addEventListener('click', openMenu);
+  $('closeMenu').addEventListener('click', closeMenu);
+  $('soundBtn').addEventListener('click', () => {
+    muted = !muted;
+    store.set(KEYS.mute, muted ? '1' : '0');
+    if (muted) sfx.squeeze(false);
+    refreshMenu();
+  });
+
+  // =====================================================================
+  //  プレイ中の更新
+  // =====================================================================
+  // 持っているものをカーソルに追従させ、狙い（aimed / headAim）を決める
+  function updateHand(dt, now) {
+    const tool = game.tool;
+    heldLemon.visible = tool === 'lemon';
+    heldMug.visible = tool === 'beer';
+    heldMayo.visible = tool === 'mayo';
+    if (!tool) { headAim = false; return; }
+
+    ray.setFromCamera(ndc, camera);
+    const kh = ray.intersectObjects(karaMeshes)[0];
+    aimed = kh ? kh.object.userData.k : null;
+    // ビールは相手の体に合わせれば頭の上へ。M5Stack は頭そのものを狙ったときだけ（隠しコマンド）
+    const headTarget = tool === 'beer' ? opp.g : tool === 'm5' ? opp.head : null;
+    headAim = !kh && !!headTarget && ray.intersectObject(headTarget, true).length > 0;
+
+    if (headAim) {
+      hand.lerp(hit.set(opp.g.position.x, 1.67, opp.g.position.z + 0.03), Math.min(1, dt * 14));
+    } else if (ray.ray.direction.y < 0) {
+      // からあげの上ではそのすぐ上に浮かせて、見た目と狙いを一致させる
+      const y = kh ? kh.point.y + 0.07 : HOLD_Y;
+      ray.ray.at((y - ray.ray.origin.y) / ray.ray.direction.y, hit);
+      hit.x = clamp(hit.x, -0.8, 0.8);
+      hit.z = clamp(hit.z, -0.5, 0.52);
+      hand.lerp(hit, Math.min(1, dt * 25));
+    }
+
+    const sq = game.squeezing ? 1 : 0;
+    tilt = lerp(tilt, sq, Math.min(1, dt * 12));
+    if (tool === 'lemon') {
+      heldLemon.position.copy(hand);
+      heldLemon.scale.set(1 - 0.28 * sq, 1, 1 + 0.1 * sq);
+      heldLemon.rotation.set(-Math.PI / 2 + sq * Math.sin(now * 40) * 0.08, Math.PI / 4 + sq * Math.sin(now * 33) * 0.06, 0);
+    } else if (tool === 'beer') {
+      heldMug.rotation.z = tilt * 1.2;
+      heldMug.position.set(hand.x + lerp(0.03, 0.165, tilt), hand.y + lerp(-0.04, 0.02, tilt), hand.z);
+    } else if (tool === 'mayo') {
+      heldMayo.rotation.z = tilt * Math.PI;      // 逆さにして絞る
+      heldMayo.position.set(hand.x, hand.y + lerp(-0.04, 0.17, tilt), hand.z);
+    } else if (tool === 'm5') {
+      m5.position.set(hand.x, hand.y - 0.03, hand.z);
+      m5.rotation.set(0.9, 0, 0);
+    }
+  }
+
+  // 手の真下に近いからあげ（accept を満たすもの）。上に積まれているものを少し優先
+  function nearestKaraage(accept) {
+    let best = null, bestD = 0.085 * 0.085;
+    karaage.forEach(k => {
+      if (!accept(k)) return;
+      const dx = k.mesh.position.x - hand.x, dz = k.mesh.position.z - hand.z;
+      const d = dx * dx + dz * dz - (k.mesh.position.y - TABLE_Y) * 0.01;
+      if (d < bestD) { bestD = d; best = k; }
+    });
+    return best;
+  }
+  function chooseTarget() {
+    switch (game.tool) {
+      case 'lemon': return aimed && aimed.level < 1 ? aimed : nearestKaraage(k => k.level < 1);
+      case 'beer': return aimed || nearestKaraage(() => true);
+      case 'mayo': return aimed && aimed.mayo < 1 ? aimed : nearestKaraage(k => k.mayo < 1);
+      default: return null;
+    }
+  }
+  function updateTarget() {
+    const next = chooseTarget();
+    if (next === target) return;
+    if (target) target.mesh.material.emissive.setHex(0x000000);
+    if (next) next.mesh.material.emissive.setHex(0x4a3200);      // 狙っているからあげを光らせる
+    target = next;
+  }
+
+  function drip(dt, kind, interval, count = 1, floor) {
+    dropTimer -= dt;
+    if (dropTimer > 0) return;
+    for (let i = 0; i < count; i++) spawnDrop(hand, kind, floor);
+    dropTimer = interval;
+  }
+  // 減点はある程度たまってからまとめて表示する
+  function showLoss(loss, every, pos) {
+    addScore(-loss);
+    lossShown += loss;
+    if (lossShown >= every) { popup('-' + Math.round(lossShown), pos, 'neg'); lossShown = 0; }
+  }
+
+  function pourBeer(dt) {
+    // からあげにかけているところを見られたら怒られるだけ（ジョッキは取り上げられる）
+    if (!headAim && isSeen()) {
+      say(takenMug === theirMug ? 'それ私のビール！！' : pick(SCOLDS), 1.6);
+      putBack(); sfx.scold();
+      return;
+    }
+    game.amount -= dt / RULES.beerTime;
+    drip(dt, 'beer', 0.02, 2, headAim ? HEAD_DROP_FLOOR : DROP_FLOOR);
+    if (headAim) {
+      // 相手の頭にビール：大きく減点されるが、目に入ってしばらく何も見えなくなる
+      ai.wet = Math.min(1, ai.wet + dt * 0.9);
+      ai.blindT = Math.min(RULES.blindMax, ai.blindT + dt * RULES.blindRate);
+      showLoss(dt * RULES.headLoss, 80, hand);
+    } else if (target) {
+      // からあげにビール：減点。かけたレモンとマヨネーズも流れてしまう
+      target.level = Math.max(0, target.level - dt);
+      target.beer = Math.min(1, target.beer + dt * 0.8);
+      target.mayo = Math.max(0, target.mayo - dt);
+      paintKaraage(target);
+      showLoss(dt * RULES.beerLoss, 50, target.mesh.position);
+    }
+    if (game.amount <= 0) { putBack(); popup('ビールおかわり！', takenMug.position); }
+  }
+
+  function pourMayo(dt) {
+    // マヨネーズは見られても怒られない。加点はレモンより控えめで倍率もなし
+    game.amount -= dt / RULES.mayoTime;
+    drip(dt, 'mayo', 0.03);
+    if (target) {
+      const before = target.mayo;
+      target.mayo = Math.min(1, target.mayo + dt / RULES.mayoKaraTime);
+      addScore((target.mayo - before) * RULES.mayoPoints);
+      paintKaraage(target);
+      if (target.mayo >= 1) { sfx.pick(); popup('マヨ +' + RULES.mayoPoints, target.mesh.position); }
+    }
+    if (game.amount <= 0) putBack();
+  }
+
+  // 見つかったら true を返す
+  function squeezeLemon(dt) {
+    if (isSeen()) { caught(); return true; }
+    game.amount -= dt / RULES.lemonTime;
+    drip(dt, 'lemon', 0.035 / (1 + game.mult * 0.4));
+    if (target) {
+      const before = target.level;
+      target.level = Math.min(1, target.level + dt / RULES.karaTime);
+      game.mult = Math.min(RULES.multMax, game.mult + dt * RULES.multRate);
+      addScore((target.level - before) * RULES.karaPoints * game.mult);
+      paintKaraage(target);
+      if (target.level >= 1) {
+        const bonus = Math.round(RULES.karaBonus * game.mult);
+        addScore(bonus); sfx.done();
+        popup('+' + bonus, target.mesh.position);
+        if (karaage.every(k => k.level >= 1)) {
+          const roundBonus = RULES.roundBonus * game.round;
+          addScore(roundBonus); game.round++;
+          popup('全部がけ達成！おかわり +' + roundBonus, vec(PLATE.x, TABLE_Y + 0.3, PLATE.z), 'big');
+          resetKaraage();
+        }
+      }
+    }
+    if (game.amount <= 0) putBack();
+    return false;
+  }
+
+  function updatePlay(dt, now) {
+    game.time += dt;
+    updateAI(dt);
+    updateHand(dt, now);
+    updateTarget();
+
+    if (game.squeezing) {
+      if (game.tool === 'beer') pourBeer(dt);
+      else if (game.tool === 'mayo') pourMayo(dt);
+      else if (game.tool === 'lemon' && squeezeLemon(dt)) return;
+    }
+    if (!(game.tool === 'lemon' && game.squeezing)) game.mult = 1;      // 倍率は搾り続けている間だけ
+    sfx.squeeze(!!game.tool && game.squeezing);
+    updateHud();
+  }
+
+  // =====================================================================
+  //  見つかったあとの処刑演出
+  // =====================================================================
+  function shakeCamera(amount) {
+    camera.position.x += rand(-amount, amount);
+    camera.position.y += rand(-amount, amount);
+  }
+  function updateCaught(dt, now) {
+    ai.att = Math.min(1, ai.att + dt * 9);
+    game.caughtT -= dt;
+    const t = game.caughtT;
+    opp.head.scale.setScalar(1 + 0.7 * smooth(Math.min(1, (RULES.caughtTime - t) / 0.4)));   // 怒りで顔が巨大化
+    look.lerp(hit.set(opp.g.position.x * 0.8, 1.25, opp.g.position.z), Math.min(1, dt * 6));
+    shakeCamera(0.012 + Math.max(0, t - 1.6) * 0.05);
+
+    if (t < RULES.execTime) {
+      const p = 1 - Math.max(0, t) / RULES.execTime;      // 処刑の進み具合 0→1
+      if (!game.execSfx) { game.execSfx = true; sfx.exec(game.exec); }
+      if (game.exec === 'crush') {
+        bigKara.visible = true;
+        bigKara.position.set(0, lerp(3.0, 1.3, Math.pow(p, 1.5)), lerp(-0.4, 0.75, p));
+        bigKara.rotation.set(now * 3, now * 2, 0);
+        if (p > 0.93) flash('#000', 1);
+      } else {
+        aimBeams(opp, 1 + p * 1.5 + Math.sin(now * 60) * 0.3);
+        flash('#fff', p * p);
+      }
+    }
+    if (t <= 0) gameOver();
+  }
+
+  // =====================================================================
+  //  メインループ
+  // =====================================================================
+  const clock = new THREE.Clock();
+  let frameNo = 0;
+
+  function frame() {
+    requestAnimationFrame(frame);
+    const dt = Math.min(clock.getDelta(), 0.05), now = clock.elapsedTime;
+
+    camera.position.copy(CAM_POS);
+    if (game.mode === 'play') {
+      if (game.paused) {
+        sfx.squeeze(false);      // 設定メニュー中は一時停止
+      } else {
+        updatePlay(dt, now);
+        if (game.mode === 'play') {      // updatePlay の中で見つかることがある
+          look.lerp(headAim ? CAM_LOOK_UP : CAM_LOOK, Math.min(1, dt * 5));
+          if (game.squeezing) shakeCamera((game.mult - 1) * 0.0018);      // 倍率が上がるほど手が震える
+        }
+      }
+    } else if (game.mode === 'caught') {
+      updateCaught(dt, now);
+    } else if (game.mode === 'title') {
+      // タイトル中は相手がきょろきょろしている
+      ai.att = 0.5 + 0.5 * Math.sin(now * 0.8);
+      ai.type = 'left';
+    }
+    camera.lookAt(look);
+    updateDrops(dt);
+    poseOpponent(now);
+    sun.shadow.needsUpdate = (frameNo++ & 1) === 0;
+    renderer.render(scene, camera);
+  }
+  frame();
+})();
+</script>
+</body>
+</html>
