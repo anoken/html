@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>命の砂時計</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap">
+<style>
+/* Layout: 一画面。中央に砂時計、その下に今年の残り時間。藍と砂金の二色。 */
+:root{
+  --bg:#f3efe6;
+  --surface:#fbf9f4;
+  --ink:#1c2340;
+  --ink-soft:#5c6480;
+  --line:#d8d2c4;
+  --sand:#c9a24a;
+  --sand-deep:#9a7524;
+  --glass:#e6e0d2;
+  --display:"Shippori Mincho","Hiragino Mincho ProN","Yu Mincho",serif;
+  --body:"Noto Sans JP","Hiragino Sans","Yu Gothic",sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121626;--surface:#1b2036;--ink:#ece6d6;--ink-soft:#9aa0b8;--line:#2d3350;
+    --sand:#d6ad4f;--sand-deep:#a67f2a;--glass:#262c47;color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121626;--surface:#1b2036;--ink:#ece6d6;--ink-soft:#9aa0b8;--line:#2d3350;
+  --sand:#d6ad4f;--sand-deep:#a67f2a;--glass:#262c47;color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:24px 32px;}
+.wrap{max-width:440px;margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:26px}
+header{text-align:center}
+h1{font-family:var(--display);font-weight:700;font-size:1.9rem;letter-spacing:.12em;margin:0;text-wrap:balance}
+canvas#hg{width:min(260px,72vw);max-width:100%;height:auto;display:block;aspect-ratio:2/3}
+.left{text-align:center;font-variant-numeric:tabular-nums;display:flex;flex-direction:column;gap:10px}
+.eyebrow{font-size:.74rem;letter-spacing:.16em;color:var(--ink-soft)}
+.dhms{font-family:var(--display);font-weight:500;font-size:1.15rem;line-height:1.2;color:var(--ink-soft);margin-top:-4px}
+.dhms small{font-family:var(--body);font-weight:400;font-size:.8rem;color:var(--ink-soft);margin:0 4px 0 1px}
+.dhms small:last-of-type{margin-right:0}
+.secs{font-family:var(--display);font-weight:700;font-size:2.4rem;line-height:1;color:var(--sand-deep);letter-spacing:.02em}
+.secs small{font-family:var(--body);font-weight:500;font-size:.9rem;color:var(--ink-soft);margin-left:4px}
+.pct{font-size:.8rem;color:var(--ink-soft);letter-spacing:.06em;line-height:1.7}
+.times{display:flex;justify-content:center;align-items:center;gap:8px;flex-wrap:wrap;font-size:.9rem;color:var(--ink-soft);margin-top:4px}
+.times label{letter-spacing:.06em}
+.times input{font:inherit;color:var(--ink);background:transparent;border:0;border-bottom:1px solid var(--line);padding:4px 2px;outline:none}
+.times input:focus-visible{border-bottom-color:var(--sand);outline:none}
+.times b{color:var(--ink);font-weight:600}
+.arrow{opacity:.6}
+</style>
+</head>
+<body style="margin:0">
+
+<div class="wrap">
+  <header>
+    <h1>命の砂時計</h1>
+  </header>
+
+  <canvas id="hg" width="200" height="300" role="img" aria-label="今年の残り時間を示す砂時計"></canvas>
+
+  <div class="left" aria-live="off">
+    <div class="eyebrow">今日の残り時間</div>
+    <div class="secs"><span id="total">—</span><small>秒</small></div>
+    <div class="dhms">（<span id="h">—</span><small>時間</small><span id="m">—</span><small>分</small><span id="s">—</span><small>秒</small>）</div>
+    <div class="pct">24時間 1,440分 − 睡眠 7.5時間 450分 ＝ 990分（59,400秒）<br>そのうち <span id="pct">—</span>% が、もう落ちた</div>
+    <div class="times">
+      <label for="wake">起床</label><input type="time" id="wake" value="06:00">
+      <span class="arrow">→</span>
+      <span>就寝 <b id="bed">22:30</b></span>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id)};
+  var frac=1, flowing=true;
+
+  // 1日の持ち時間：24h − 睡眠 7.5h ＝ 990分。起床 6:00 → 就寝 22:30 と仮定
+  var WAKE_SEC=990*60, DAY_START=6*3600;
+  var wakeInp=$('wake');
+  try{var sv=localStorage.getItem('wake');if(sv)wakeInp.value=sv}catch(e){}
+  function applyWake(){
+    var p=(wakeInp.value||'06:00').split(':'); DAY_START=(+p[0])*3600+(+p[1])*60;
+    var bed=(DAY_START+WAKE_SEC)%86400;
+    $('bed').textContent=(bed<DAY_START?'翌':'')+Math.floor(bed/3600)+':'+String(Math.floor(bed%3600/60)).padStart(2,'0');
+    try{localStorage.setItem('wake',wakeInp.value)}catch(e){}
+    tick();
+  }
+  wakeInp.addEventListener('change',applyWake);
+  function tick(){
+    var now=new Date(), t=now.getHours()*3600+now.getMinutes()*60+now.getSeconds();
+    var elapsed=((t-DAY_START)+86400)%86400; // 起床からの経過秒（日付をまたいでも正しい）
+    var left=elapsed<WAKE_SEC?WAKE_SEC-elapsed:0; // 就寝以降はゼロ、起床で満タンに戻る
+    frac=left/WAKE_SEC; flowing=left>0;
+    var sec=left;
+    $('h').textContent=String(Math.floor(sec/3600)).padStart(2,'0');
+    $('m').textContent=String(Math.floor(sec%3600/60)).padStart(2,'0');
+    $('s').textContent=String(sec%60).padStart(2,'0');
+    $('total').textContent=sec.toLocaleString('ja-JP');
+    $('pct').textContent=((1-frac)*100).toFixed(4);
+  }
+  applyWake(); setInterval(tick,250);
+
+  // 砂時計（Canvas 粒子シミュレーション、座標は 200×300）
+  var cv=$('hg'), ctx=cv.getContext('2d'), DPR=Math.min(3,window.devicePixelRatio||1);
+  cv.width=200*DPR; cv.height=300*DPR;
+  function cssVar(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()}
+  var col={};
+  function refreshColors(){col.sand=cssVar('--sand');col.deep=cssVar('--sand-deep');col.glass=cssVar('--glass');col.ink=cssVar('--ink')}
+  refreshColors();
+  if(window.matchMedia){window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',refreshColors)}
+  new MutationObserver(refreshColors).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+  function topPath(c){c.beginPath();c.moveTo(30,20);c.lineTo(170,20);c.lineTo(170,40);c.bezierCurveTo(170,85,125,120,100,150);c.bezierCurveTo(75,120,30,85,30,40);c.closePath()}
+  function botPath(c){c.beginPath();c.moveTo(100,150);c.bezierCurveTo(125,180,170,215,170,260);c.lineTo(170,280);c.lineTo(30,280);c.lineTo(30,260);c.bezierCurveTo(30,215,75,180,100,150);c.closePath()}
+  // 下球の砂山：底 280 から積もり、山の頂はくびれ（150）より下に収まる
+  function heapY(x){
+    var botH=118*(1-frac), base=280-botH;
+    var hump=Math.min(22,botH*0.45,Math.max(0,base-162));
+    var d=Math.abs(x-100)/72; return base-hump*Math.max(0,1-d*d);
+  }
+  var tex=document.createElement('canvas'); tex.width=tex.height=48;
+  (function(){var t=tex.getContext('2d');for(var i=0;i<900;i++){t.fillStyle='rgba(0,0,0,'+(Math.random()*.22)+')';t.fillRect(Math.random()*48,Math.random()*48,1,1)}for(i=0;i<400;i++){t.fillStyle='rgba(255,255,255,'+(Math.random()*.25)+')';t.fillRect(Math.random()*48,Math.random()*48,1,1)}})();
+  var pat=null;
+
+  var P=[], MAXP=140;
+  function spawn(k){
+    for(var i=0;i<k&&P.length<MAXP;i++){
+      P.push({x:100+(Math.random()-.5)*2.2,y:150+Math.random()*3,vx:(Math.random()-.5)*0.25,vy:2.5+Math.random()*1.5,r:0.7+Math.random()*0.6,c:Math.random()<.3?col.deep:col.sand,life:1});
+    }
+  }
+  function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();ctx.fill()}
+  var last=0;
+  function frame(ts){
+    requestAnimationFrame(frame);
+    var dt=Math.min(32,ts-last)/16.67; last=ts;
+    if(!pat)pat=ctx.createPattern(tex,'repeat');
+    ctx.setTransform(DPR,0,0,DPR,0,0); ctx.clearRect(0,0,200,300);
+
+    ctx.fillStyle=col.ink; rr(20,8,160,14,4); rr(20,278,160,14,4);
+    ctx.fillStyle=col.glass; topPath(ctx); ctx.fill(); botPath(ctx); ctx.fill();
+
+    // 上球の砂：中央がすり鉢状にくぼみ、くびれに吸い込まれる
+    var topH=118*frac;
+    if(topH>0){
+      ctx.save(); topPath(ctx); ctx.clip();
+      var y0=148-topH, dip=Math.min(14,topH*0.5);
+      ctx.beginPath(); ctx.moveTo(0,y0); ctx.lineTo(55,y0);
+      ctx.bezierCurveTo(85,y0,92,y0+dip,100,y0+dip); ctx.bezierCurveTo(108,y0+dip,115,y0,145,y0);
+      ctx.lineTo(200,y0); ctx.lineTo(200,160); ctx.lineTo(0,160); ctx.closePath();
+      ctx.fillStyle=col.sand; ctx.fill(); ctx.fillStyle=pat; ctx.fill();
+      ctx.restore();
+    }
+    // 下球の砂山
+    ctx.save(); botPath(ctx); ctx.clip();
+    ctx.beginPath(); ctx.moveTo(0,300);
+    for(var x=0;x<=200;x+=4){ctx.lineTo(x,heapY(x))}
+    ctx.lineTo(200,300); ctx.closePath();
+    ctx.fillStyle=col.sand; ctx.fill(); ctx.fillStyle=pat; ctx.fill();
+    ctx.restore();
+
+    // 落ちる砂：細い筋と、それに沿って散る粒
+    if(flowing){
+      spawn(4);
+      ctx.save(); botPath(ctx); ctx.clip();
+      var hy0=heapY(100);
+      ctx.fillStyle=col.sand; ctx.globalAlpha=.7;
+      ctx.beginPath(); ctx.moveTo(98.8,150); ctx.lineTo(101.2,150); ctx.lineTo(100.6,hy0); ctx.lineTo(99.4,hy0); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha=1;
+      for(var i=P.length-1;i>=0;i--){
+        var p=P[i]; p.vy+=0.42*dt; p.vx+=(Math.random()-.5)*0.12; p.x+=p.vx*dt; p.y+=p.vy*dt;
+        var hy=heapY(p.x);
+        if(p.y>=hy){
+          p.y=hy; p.vy=0; p.vx+=(p.x<100?-1:1)*(0.25+Math.random()*0.35); p.life-=0.12*dt;
+          if(p.life<=0||p.x<32||p.x>168){P.splice(i,1);continue}
+        }
+        ctx.fillStyle=p.c; ctx.fillRect(p.x-p.r/2,p.y-p.r/2,p.r,p.r);
+      }
+      ctx.restore();
+    }else{P.length=0}
+
+    ctx.lineWidth=2.5; ctx.strokeStyle=col.ink; ctx.lineJoin='round';
+    topPath(ctx); ctx.stroke(); botPath(ctx); ctx.stroke();
+    ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(40,30); ctx.lineTo(40,52); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(40,250); ctx.lineTo(40,270); ctx.stroke();
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

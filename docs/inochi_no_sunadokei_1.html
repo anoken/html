@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>命の砂時計 (Copy)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#e6ecf2; --sky1:#eef2f6; --sky2:#c9d5e2; --bldg:#b7c4d3; --win:#dfe7ef;
+  --ground:#8796a8; --ground-dark:#5d6b7d; --ink:#1d2740; --muted:#55627a;
+  --sand:#e8a52f; --sand-dark:#b97a12; --glass:#f7f9fb; --bubble:#ffffff; --bubble-ink:#1d2740;
+  --danger:#c8323a; --wall:#3a1d2b; --hud:#f7f9fb; --shirt:#ffffff; --tie:#c8323a; --paper:#fdfdf8;
+  --hill:#d6dee8; --suit:#2f3b5c; --btn:rgba(247,249,251,.92);
+  --overlay:rgba(230,236,242,.97);
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#141a28; --sky1:#141a28; --sky2:#1f2940; --bldg:#26314a; --win:#3a4766;
+    --ground:#2f3a52; --ground-dark:#1a2236; --ink:#e5ebf4; --muted:#a5b0c4;
+    --sand:#f2b443; --sand-dark:#e09a2a; --glass:#1b2234; --bubble:#eef2f7; --bubble-ink:#1d2740;
+    --danger:#ff6470; --wall:#4a1d2e; --hud:#1b2234; --shirt:#dfe6ef; --tie:#ff6470; --paper:#e9ecef;
+    --hill:#222c42; --suit:#4a5d8f; --btn:rgba(27,34,52,.88);
+    --overlay:rgba(20,26,40,.97);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#141a28; --sky1:#141a28; --sky2:#1f2940; --bldg:#26314a; --win:#3a4766;
+  --ground:#2f3a52; --ground-dark:#1a2236; --ink:#e5ebf4; --muted:#a5b0c4;
+  --sand:#f2b443; --sand-dark:#e09a2a; --glass:#1b2234; --bubble:#eef2f7; --bubble-ink:#1d2740;
+  --danger:#ff6470; --wall:#4a1d2e; --hud:#1b2234; --shirt:#dfe6ef; --tie:#ff6470; --paper:#e9ecef;
+  --hill:#222c42; --suit:#4a5d8f; --btn:rgba(27,34,52,.88);
+  --overlay:rgba(20,26,40,.97);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:"DotGothic16","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  -webkit-text-size-adjust:100%;
+  overscroll-behavior:none;
+}
+.wrap{margin:0 auto; padding:10px; max-width:1100px}
+header{display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin:0 2px 8px}
+header h1{font-size:24px; margin:0; letter-spacing:.08em; font-weight:400}
+header p{margin:0; font-size:14px; color:var(--muted)}
+.stage{position:relative; width:fit-content; margin:0 auto; border-radius:8px; overflow:hidden; border:2px solid var(--ink)}
+canvas{display:block; background:var(--sky1); touch-action:none}
+
+.ctrl{display:none; gap:10px; margin-top:10px; user-select:none; -webkit-user-select:none}
+.ctrl .lr{display:flex; gap:10px; flex:2}
+.ctrl button{
+  font:inherit; font-size:32px; color:var(--ink); background:var(--btn);
+  border:3px solid var(--ink); border-radius:18px; height:92px; flex:1;
+  touch-action:none; -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent;
+}
+.ctrl button.jump{flex:1.3; font-size:26px; background:var(--sand); color:#1d2740}
+.ctrl button.on{transform:scale(.95); filter:brightness(.9)}
+body.touch .ctrl{display:flex}
+body.land header{display:none}
+body.land .wrap{padding:6px}
+body.land .ctrl{
+  position:fixed; left:0; right:0; bottom:0; margin:0; pointer-events:none;
+  justify-content:space-between; align-items:flex-end;
+  padding:0 max(14px, env(safe-area-inset-right,0px)) max(14px, env(safe-area-inset-bottom,0px)) max(14px, env(safe-area-inset-left,0px));
+}
+body.land .ctrl .lr{flex:none}
+body.land .ctrl button{pointer-events:auto; flex:none; width:92px; height:92px; opacity:.85}
+body.land .ctrl button.jump{width:120px}
+.keys{margin:10px 0 0; font-size:16px; color:var(--muted); text-align:center}
+body.touch .keys{display:none}
+
+.ov{
+  position:absolute; inset:0; background:var(--overlay); display:flex;
+  padding:16px; overflow:auto; text-align:center;
+}
+.ov[hidden]{display:none}
+.ov .box{max-width:620px; margin:auto}
+.ov h2{font-size:clamp(30px,6vw,48px); margin:0 0 6px; font-weight:400; letter-spacing:.06em}
+.ov .rank{color:var(--sand-dark); font-size:clamp(17px,2.6vw,20px); margin:0 0 10px}
+.ov .msg{font-size:clamp(18px,2.8vw,22px); line-height:1.7; margin:8px 0 12px}
+.ov .cause{color:var(--danger); font-size:clamp(19px,3vw,24px); margin:4px 0}
+.ov .lead{font-size:clamp(17px,2.6vw,20px); line-height:1.7; margin:6px 0 14px}
+.ov .stats{display:flex; flex-wrap:wrap; justify-content:center; gap:6px 18px; font-size:clamp(15px,2.2vw,17px); color:var(--muted); margin:8px 0 14px}
+.ov .stats b{color:var(--ink); font-weight:400}
+.ov .go{
+  font:inherit; font-size:clamp(20px,3vw,24px); padding:16px 28px; border-radius:14px; cursor:pointer;
+  background:var(--sand); color:#1d2740; border:3px solid var(--ink);
+}
+.ov .go:focus-visible{outline:3px solid var(--ink); outline-offset:3px}
+.ov .fine{font-size:15px; color:var(--muted); margin:12px 0 0}
+.ov .actions{position:sticky; bottom:0; padding:12px 0 4px; background:linear-gradient(to bottom, transparent, var(--overlay) 35%)}
+@media (max-height:520px){
+  .ov{padding:8px 16px}
+  .big-glass{display:none}
+  .ov h2{font-size:26px; margin:0 0 2px}
+  .ov .rank{font-size:15px; margin:0 0 4px}
+  .ov .lead, .ov .msg{font-size:15px; line-height:1.55; margin:4px 0 6px}
+  .ov .cause{font-size:17px; margin:2px 0}
+  .ov .stats{font-size:13px; margin:4px 0 2px; gap:2px 14px}
+  .items{grid-template-columns:auto 1fr auto 1fr; font-size:14px; gap:4px 12px; max-width:none; margin:0 auto 2px}
+  .ov .go{font-size:18px; padding:10px 24px}
+  .ov .fine{font-size:12px; margin:2px 0 0}
+  .ov .actions{padding:8px 0 2px}
+}
+.big-glass{font-size:52px; line-height:1; margin-bottom:6px}
+.items{display:grid; grid-template-columns:auto 1fr; gap:6px 14px; text-align:left; margin:0 auto 16px; max-width:520px; font-size:clamp(15px,2.3vw,18px); line-height:1.4}
+.items dt{color:var(--sand-dark)}
+.items dd{margin:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>命の砂時計</h1>
+    <p>横向きにすると遊びやすいです</p>
+  </header>
+  <div class="stage" id="stage">
+    <canvas id="c" aria-label="ゲーム画面"></canvas>
+    <div class="ov" id="ov"></div>
+  </div>
+  <div class="ctrl" id="ctrl">
+    <div class="lr">
+      <button id="bL" aria-label="左へ">◀</button>
+      <button id="bR" aria-label="右へ">▶</button>
+    </div>
+    <button id="bJ" class="jump" aria-label="ジャンプ">ジャンプ</button>
+  </div>
+  <p class="keys">← → で移動　スペース / ↑ でジャンプ（空中でもう一回ジャンプできます）</p>
+</div>
+
+<script>
+(() => {
+const H = 450, GROUND = 392, LEVEL_LEN = 7600;
+const GRAV = 1900, JUMP = 640, SPEED = 270;
+const FONT = '"DotGothic16","Hiragino Sans","Yu Gothic",sans-serif';
+let W = 800, S = 1;
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const ov = document.getElementById('ov');
+
+// on-screen size in CSS px → logical size, so text stays readable on small screens
+const F = css => Math.round(Math.max(css * 0.85, css / S));
+
+function isTouch(){
+  return (window.matchMedia && matchMedia('(pointer:coarse)').matches) || ('ontouchstart' in window && navigator.maxTouchPoints > 0);
+}
+function fit(){
+  const touch = isTouch();
+  const land = touch && innerWidth > innerHeight;
+  document.body.classList.toggle('touch', touch);
+  document.body.classList.toggle('land', land);
+  const wrap = document.querySelector('.wrap');
+  const cs = getComputedStyle(wrap);
+  const vw = wrap.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 4;
+  const header = document.querySelector('header');
+  const rootCs = getComputedStyle(document.documentElement);
+  let used = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) + 4
+           + parseFloat(rootCs.paddingTop) + parseFloat(rootCs.paddingBottom);
+  if (header.offsetParent) used += header.offsetHeight + 8;
+  if (touch && !land) used += document.getElementById('ctrl').offsetHeight + 10;
+  if (!touch) used += 40;
+  const availH = Math.max(220, innerHeight - used);
+  const minW = vw < 700 ? 480 : 760;
+  const Wl = Math.max(minW, Math.min(860, 450 * vw / availH));
+  let cssW = vw, cssH = cssW * H / Wl;
+  if (cssH > availH){ cssH = availH; cssW = cssH * Wl / H; }
+  W = Math.round(Wl);
+  S = cssW / W;
+  canvas.style.width = cssW + 'px';
+  canvas.style.height = cssH + 'px';
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  ctx.setTransform(S * dpr, 0, 0, S * dpr, 0, 0);
+}
+fit();
+window.addEventListener('resize', fit);
+window.addEventListener('orientationchange', () => setTimeout(fit, 200));
+
+// ---------- colors ----------
+const C = {};
+const COLOR_KEYS = ['bg','sky1','sky2','bldg','win','ground','ground-dark','ink','muted','sand','sand-dark','glass','bubble','bubble-ink','danger','wall','hud','shirt','tie','paper','hill','suit'];
+function readColors(){
+  const s = getComputedStyle(document.documentElement);
+  COLOR_KEYS.forEach(k => C[k] = s.getPropertyValue('--' + k).trim());
+}
+readColors();
+try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readColors); } catch(e){}
+
+// ---------- 命の砂時計を浪費するもの ----------
+const WALKERS = [
+  { t:'終わらない定例会議', q:'「では次回も同じ議題で」', c:14 },
+  { t:'会議のための会議',   q:'「まず進め方を決めましょう」', c:12 },
+  { t:'ハンコのための出社', q:'「原本に押印をお願いします」', c:12 },
+  { t:'上司の武勇伝',       q:'「俺が若い頃はな…」', c:10 },
+  { t:'前例がありません',   q:'「前例ができたら検討します」', c:12 },
+  { t:'持ち帰って検討',     q:'「（永遠に持ち帰り中）」', c:10 },
+  { t:'5段階の承認フロー',  q:'「課長→次長→部長→本部長→？」', c:14 },
+];
+const FLYERS = [
+  { t:'念のための確認',   q:'「念のため、念のための確認です」', c:8 },
+  { t:'全員CCメール',     q:'「関係者各位（ほぼ全社）」', c:8 },
+  { t:'無限スクロール',   q:'「あと1本だけ…」', c:10 },
+  { t:'通知の嵐',         q:'「ピコン ×99」', c:6 },
+  { t:'長すぎる前置き',   q:'「本題の前に少し背景を…」', c:8 },
+  { t:'「ちょっといい？」', q:'「（90分経過）」', c:10 },
+  { t:'言った言わない',   q:'「議事録には書いてないよね」', c:10 },
+  { t:'パスワード変更',   q:'「過去5回と同じものは不可」', c:6 },
+  { t:'既読スルーの催促', q:'「見ましたか？見ましたよね？」', c:8 },
+];
+const DROPPERS = [
+  { t:'フォント統一',     q:'「明朝とゴシックが混ざってます」', c:10 },
+  { t:'Excel方眼紙',      q:'「セル結合は解除しないで」', c:10 },
+  { t:'読まれない報告書', q:'「（誰も開かずアーカイブ）」', c:8 },
+  { t:'更新プログラム',   q:'「電源を切らないでください」', c:8 },
+  { t:'謝罪のための謝罪', q:'「先ほどの謝罪が不十分で…」', c:10 },
+  { t:'自動再生',         q:'「5秒後に次の動画」', c:8 },
+];
+const SAME = { t:'同じ質問', q:'「さっきも答えましたが…」', c:12 };
+const SAME2 = { t:'同じ質問（2回目）', q:'「先ほどの件、もう一度伺っても？」', c:14 };
+const PICKS = [
+  { t:'結論から言うと', fx:'brk', v:0, w:26, d:'1回だけ論破できる' },
+  { t:'それメールでよくない？', fx:'ghost', v:0, w:15, d:'5秒間すり抜け' },
+  { t:'定時退社', fx:'dash', v:5, w:15, d:'5秒間ダッシュ' },
+  { t:'有給休暇', fx:'paid', v:15, w:14, d:'「同じ質問」を押し戻す' },
+];
+const ITEM_COL = { brk:'#d8433f', ghost:'#3b82c4', dash:'#e8a52f', paid:'#2e9e6a' };
+const pick = a => a[Math.floor(Math.random() * a.length)];
+function pickItem(){
+  let r = Math.random() * PICKS.reduce((a, k) => a + k.w, 0);
+  for (const k of PICKS){ if ((r -= k.w) <= 0) return k; }
+  return PICKS[0];
+}
+
+// ---------- state ----------
+let state = 'title';
+let p, wall, obs, pops, plats, picks, bldgs, camX, sand, elapsed, hits, dodged, lastCause, spawnT, shake, runT, fx, parts, destroyed;
+const keys = { left:false, right:false };
+let jumpQueued = false;
+
+function addPick(x, y){
+  const k = pickItem();
+  picks.push({ x, y, w: 28, h: 34, k, t: k.t, got: false, ph: Math.random() * 6 });
+}
+function genLevel(){
+  plats = []; picks = [];
+  let x = 520;
+  while (x < LEVEL_LEN - 600){
+    const w = 140 + Math.random() * 120;
+    const y = Math.random() < 0.3 ? 240 + Math.random() * 20 : 282 + Math.random() * 40;
+    plats.push({ x, y, w });
+    if (Math.random() < 0.45) addPick(x + w / 2 - 14, y - 44);
+    if (Math.random() < 0.18) addPick(x + w + 160 + Math.random() * 80, GROUND - 130);
+    x += 430 + Math.random() * 380;
+  }
+  bldgs = [];
+  let bx = -100;
+  while (bx < 4400){
+    const w = 70 + Math.random() * 70, h = 70 + Math.random() * 170;
+    bldgs.push({ x: bx, w, h });
+    bx += w + 10 + Math.random() * 40;
+  }
+}
+
+function reset(){
+  p = { x:140, y:GROUND - 58, w:28, h:58, vx:0, vy:0, on:true, jumps:0, inv:0, face:1 };
+  wall = { x:-240 };
+  obs = []; pops = [];
+  camX = 0; sand = 100; elapsed = 0; hits = 0; dodged = 0; lastCause = '';
+  fx = { brk:0, ghost:0, dash:0 }; parts = []; destroyed = 0;
+  spawnT = 1.5; shake = 0; runT = 0;
+  genLevel();
+}
+reset();
+
+function measure(text, size){
+  ctx.font = `${size}px ${FONT}`;
+  return ctx.measureText(text).width;
+}
+
+function mk(def, kind){
+  const fs = F(17);
+  return { kind, t:def.t, q:def.q, c:def.c, fs, w: measure(def.t, fs) + 24, h: fs + 16, x:0, y:0, vx:0, vy:0,
+           baseY:0, ph: Math.random() * 6, hit:false, dead:false, boomer:false, back:false, landed:false };
+}
+function spawn(){
+  const r = Math.random();
+  const sx = camX + W + 40;
+  let o;
+  if (r < 0.26){
+    o = mk(SAME, 'flyer');
+    o.boomer = true;
+    o.x = sx; o.baseY = 250 + Math.random() * 70; o.y = o.baseY; o.vx = -(190 + Math.random() * 60);
+  } else if (r < 0.52){
+    o = mk(pick(WALKERS), 'walker');
+    o.bh = o.h; o.h += 12; o.x = sx; o.y = GROUND - o.h; o.vx = -(110 + Math.random() * 80);
+  } else if (r < 0.78){
+    o = mk(pick(FLYERS), 'flyer');
+    o.x = sx; o.baseY = 200 + Math.random() * 120; o.y = o.baseY; o.vx = -(160 + Math.random() * 90);
+  } else {
+    o = mk(pick(DROPPERS), 'dropper');
+    o.x = Math.min(p.x + 120 + Math.random() * W * 0.4, LEVEL_LEN - 250);
+    o.y = -60; o.vx = 0; o.vy = 60;
+  }
+  obs.push(o);
+}
+
+function popup(x, y, text, color, css){
+  pops.push({ x, y, text, color, css: css || 18, life: 1.6 });
+}
+
+function damage(def){
+  sand -= def.c;
+  p.inv = 1.1; p.vy = -330; p.on = false;
+  hits++;
+  lastCause = def.t;
+  popup(p.x + 14, p.y - 10, def.q, C.ink, 18);
+  popup(p.x + 14, p.y - 10 - F(22), `-${def.c} 砂`, C.danger, 20);
+  shake = 0.25;
+}
+
+function overlap(a, b){
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function burst(x, y, color){
+  for (let i = 0; i < 12; i++) parts.push({ x, y, vx:(Math.random() - 0.5) * 360, vy:-Math.random() * 320 - 60, life:0.8, color });
+}
+function destroy(o, word){
+  o.dead = true; destroyed++;
+  burst(o.x + o.w / 2, o.y + o.h / 2, C.sand);
+  popup(o.x + o.w / 2, o.y - 6, word, C['sand-dark'], 22);
+}
+function useItem(k){
+  const it = k.k;
+  if (it.v) sand = Math.min(100, sand + it.v);
+  if (it.fx === 'brk') fx.brk = 1;
+  if (it.fx === 'ghost') fx.ghost = 5;
+  if (it.fx === 'dash') fx.dash = 5;
+  if (it.fx === 'paid') wall.x = Math.min(wall.x, p.x - 260) - 500;
+  if (it.fx === 'clear'){
+    for (const o of obs){
+      if (!o.dead && o.x + o.w > camX && o.x < camX + W){
+        o.dead = true; destroyed++;
+        burst(o.x + o.w / 2, o.y + o.h / 2, C.sand);
+      }
+    }
+    shake = 0.2;
+  }
+  popup(k.x + 14, k.y - 8, `${it.t}：${it.d}`, C['sand-dark'], 18);
+  if (it.v) popup(k.x + 14, k.y - 8 - F(24), `+${it.v} 砂`, C['sand-dark'], 18);
+}
+
+// ---------- update ----------
+function update(dt){
+  elapsed += dt;
+
+  const dir = (keys.left ? -1 : 0) + (keys.right ? 1 : 0);
+  p.vx = dir * SPEED * (fx.dash > 0 ? 1.6 : 1);
+  if (dir) p.face = dir;
+  if (jumpQueued){
+    if (p.on || p.jumps < 2){
+      p.vy = -JUMP * (p.on ? 1 : 0.9);
+      p.jumps++; p.on = false;
+    }
+    jumpQueued = false;
+  }
+
+  p.vy = Math.min(p.vy + GRAV * dt, 1200);
+  const prevBottom = p.y + p.h;
+  p.x = Math.max(0, p.x + p.vx * dt);
+  p.y += p.vy * dt;
+  p.on = false;
+  if (p.y + p.h >= GROUND){
+    p.y = GROUND - p.h; p.vy = 0; p.on = true; p.jumps = 0;
+  } else if (p.vy >= 0){
+    for (const pl of plats){
+      if (p.x + p.w > pl.x + 4 && p.x < pl.x + pl.w - 4 && prevBottom <= pl.y + 1 && p.y + p.h >= pl.y){
+        p.y = pl.y - p.h; p.vy = 0; p.on = true; p.jumps = 0; break;
+      }
+    }
+  }
+  if (p.inv > 0) p.inv -= dt;
+  if (fx.ghost > 0) fx.ghost -= dt;
+  if (fx.dash > 0) fx.dash -= dt;
+  if (p.vx !== 0 && p.on) runT += dt * 12;
+  camX = Math.max(0, Math.min(p.x - W * 0.3, LEVEL_LEN + 280 - W));
+
+  sand -= 0.8 * dt;
+  let causeNow = sand <= 0 ? 'ただ流れていく時間' : '';
+
+  spawnT -= dt;
+  if (spawnT <= 0 && p.x < LEVEL_LEN - 700){
+    spawn();
+    const prog = p.x / LEVEL_LEN;
+    spawnT = (1.5 - prog * 0.6) * (0.7 + Math.random() * 0.6) * (W < 600 ? 1.15 : 1);
+  }
+
+  const box = { x: p.x + 5, y: p.y + 4, w: p.w - 10, h: p.h - 4 };
+
+  for (const o of obs){
+    if (o.kind === 'walker'){
+      o.x += o.vx * dt;
+    } else if (o.kind === 'flyer'){
+      o.x += o.vx * dt;
+      o.y = o.baseY + Math.sin(elapsed * 3 + o.ph) * 16;
+      if (o.boomer && !o.back && o.x + o.w < p.x - 200){
+        o.back = true; o.vx = 240;
+        o.t = SAME2.t; o.q = SAME2.q; o.c = SAME2.c; o.hit = false;
+        o.w = measure(o.t, o.fs) + 24;
+        popup(o.x + o.w / 2, o.y - 14, 'Uターン！', C.danger, 17);
+      }
+    } else if (o.kind === 'dropper'){
+      if (!o.landed){
+        o.vy = Math.min(o.vy + 700 * dt, 500);
+        o.y += o.vy * dt;
+        if (o.y + o.h >= GROUND){ o.y = GROUND - o.h; o.landed = true; }
+      }
+    }
+    if (!o.hit && !o.dead && overlap(box, o)){
+      if (p.vy > 0 && prevBottom <= o.y + 12){
+        destroy(o, 'ふみつけ！');
+        p.vy = -520; p.on = false; p.jumps = 1;
+      } else if (fx.ghost > 0){
+        // すり抜け中
+      } else if (fx.brk > 0){
+        fx.brk--; destroy(o, '論破！');
+      } else if (p.inv <= 0){
+        o.hit = true; damage(o);
+        if (sand <= 0) causeNow = o.t;
+      }
+    }
+    if (!o.dead){
+      const offLeft = o.x + o.w < camX - 320;
+      const offRight = o.back && o.x > camX + W + 260;
+      if (offLeft || offRight){
+        o.dead = true;
+        if (!o.hit) dodged++;
+      }
+    }
+  }
+  obs = obs.filter(o => !o.dead);
+
+  for (const k of picks){
+    if (!k.got && overlap(box, k)){
+      k.got = true;
+      useItem(k);
+    }
+  }
+
+  // 迫り来る「同じ質問」
+  wall.x += (125 + elapsed * 1.6) * dt;
+  if (p.x < wall.x){
+    if (fx.ghost > 0){
+      popup(p.x + 14, p.y - 12, '「メールで回答済みです」', C.ink, 18);
+      wall.x = p.x - 420;
+    } else if (fx.brk > 0){
+      fx.brk--;
+      burst(wall.x, p.y + 20, C.danger);
+      popup(p.x + 14, p.y - 12, '論破！「結論から言うと、もう答えました」', C['sand-dark'], 18);
+      wall.x = p.x - 420;
+    } else {
+      if (p.inv <= 0){
+        damage({ t:'背後からの同じ質問', q:'「…で、さっきの件なんですけど」', c:18 });
+        if (sand <= 0) causeNow = '背後からの同じ質問';
+      }
+      wall.x = p.x - 230;
+    }
+  }
+
+  for (const q of parts){ q.vy += 900 * dt; q.x += q.vx * dt; q.y += q.vy * dt; q.life -= dt; }
+  parts = parts.filter(q => q.life > 0);
+  for (const pp of pops){ pp.y -= 32 * dt; pp.life -= dt; }
+  pops = pops.filter(pp => pp.life > 0);
+  if (shake > 0) shake -= dt;
+
+  if (sand <= 0){
+    sand = 0;
+    gameOver(causeNow || lastCause || 'ただ流れていく時間');
+    return;
+  }
+  if (p.x >= LEVEL_LEN + 40) clear();
+}
+
+// ---------- drawing ----------
+function rr(x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function drawBg(){
+  const g = ctx.createLinearGradient(0, 0, 0, GROUND);
+  g.addColorStop(0, C.sky1); g.addColorStop(1, C.sky2);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  const off = camX * 0.35;
+  for (const b of bldgs){
+    const x = b.x - off;
+    if (x + b.w < -10 || x > W + 10) continue;
+    ctx.fillStyle = C.bldg;
+    ctx.fillRect(x, GROUND - b.h, b.w, b.h);
+    ctx.fillStyle = C.win;
+    for (let wy = GROUND - b.h + 10; wy < GROUND - 14; wy += 18){
+      for (let wx = x + 8; wx < x + b.w - 12; wx += 16) ctx.fillRect(wx, wy, 8, 8);
+    }
+  }
+}
+
+function drawGround(){
+  ctx.fillStyle = C.ground;
+  ctx.fillRect(camX - 20, GROUND, W + 40, H - GROUND);
+  ctx.fillStyle = C['ground-dark'];
+  ctx.fillRect(camX - 20, GROUND, W + 40, 4);
+  const start = Math.floor(camX / 48) * 48;
+  for (let x = start; x < camX + W + 48; x += 48) ctx.fillRect(x, GROUND + 4, 2, H - GROUND);
+}
+
+function drawPlats(){
+  for (const pl of plats){
+    if (pl.x + pl.w < camX - 20 || pl.x > camX + W + 20) continue;
+    ctx.fillStyle = C.paper;
+    ctx.fillRect(pl.x, pl.y, pl.w, 14);
+    ctx.strokeStyle = C.ink; ctx.lineWidth = 2;
+    ctx.strokeRect(pl.x, pl.y, pl.w, 14);
+    ctx.beginPath();
+    for (let i = 1; i < 3; i++){ ctx.moveTo(pl.x + 3, pl.y + i * 4.6); ctx.lineTo(pl.x + pl.w - 3, pl.y + i * 4.6); }
+    ctx.lineWidth = 1; ctx.stroke();
+  }
+}
+
+function drawMiniGlass(cx, cy, s, fill){
+  ctx.beginPath();
+  ctx.moveTo(cx - s, cy - s * 1.2); ctx.lineTo(cx + s, cy - s * 1.2); ctx.lineTo(cx + 1.5, cy);
+  ctx.lineTo(cx + s, cy + s * 1.2); ctx.lineTo(cx - s, cy + s * 1.2); ctx.lineTo(cx - 1.5, cy);
+  ctx.closePath();
+  ctx.fillStyle = fill; ctx.fill();
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 2; ctx.stroke();
+}
+
+function label(text, x, y, css, color, align){
+  ctx.font = `${F(css)}px ${FONT}`;
+  ctx.textAlign = align || 'center'; ctx.textBaseline = 'middle';
+  ctx.lineWidth = 5; ctx.strokeStyle = C.sky1; ctx.lineJoin = 'round';
+  ctx.strokeText(text, x, y);
+  ctx.fillStyle = color; ctx.fillText(text, x, y);
+}
+
+function drawPicks(){
+  for (const k of picks){
+    if (k.got || k.x < camX - 60 || k.x > camX + W + 60) continue;
+    const bob = Math.sin(elapsed * 3 + k.ph) * 4;
+    const cx = k.x + 14, cy = k.y + 17 + bob;
+    const col = ITEM_COL[k.k.fx] || C.sand;
+    ctx.globalAlpha = 0.25 + Math.sin(elapsed * 4 + k.ph) * 0.08;
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(cx, cy, 25, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+    drawIcon(k.k.fx, cx, cy);
+    label(k.t, cx, cy - 24 - F(15) / 2, 15, col);
+  }
+}
+
+// アイテムごとのアイコン
+function drawIcon(type, cx, cy){
+  const col = ITEM_COL[type];
+  ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  if (type === 'brk'){
+    // 赤い吹き出しに「！」
+    ctx.beginPath(); ctx.moveTo(cx - 6, cy + 6); ctx.lineTo(cx - 10, cy + 15); ctx.lineTo(cx + 2, cy + 6); ctx.closePath();
+    ctx.fillStyle = col; ctx.fill(); ctx.strokeStyle = '#1d2740'; ctx.stroke();
+    rr(cx - 15, cy - 13, 30, 21, 7); ctx.fillStyle = col; ctx.fill(); ctx.stroke();
+    ctx.font = `bold 17px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ffffff'; ctx.fillText('！', cx, cy - 2);
+  } else if (type === 'ghost'){
+    // 封筒
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(cx - 15, cy - 10, 30, 21);
+    ctx.strokeStyle = '#1d2740'; ctx.strokeRect(cx - 15, cy - 10, 30, 21);
+    ctx.beginPath(); ctx.moveTo(cx - 15, cy - 10); ctx.lineTo(cx, cy + 2); ctx.lineTo(cx + 15, cy - 10);
+    ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.stroke();
+    ctx.lineWidth = 2; ctx.strokeStyle = '#1d2740'; ctx.strokeRect(cx - 15, cy - 10, 30, 21);
+  } else if (type === 'dash'){
+    // 17:30を指す時計＋スピード線
+    ctx.strokeStyle = col; ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(cx - 18, cy - 5); ctx.lineTo(cx - 25, cy - 5);
+    ctx.moveTo(cx - 17, cy + 2); ctx.lineTo(cx - 27, cy + 2);
+    ctx.moveTo(cx - 18, cy + 9); ctx.lineTo(cx - 24, cy + 9);
+    ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, 13, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.stroke();
+    ctx.strokeStyle = '#1d2740'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy); ctx.lineTo(cx, cy + 10);
+    ctx.moveTo(cx, cy); ctx.lineTo(cx + 3, cy + 6);
+    ctx.stroke();
+  } else if (type === 'paid'){
+    // ビーチパラソル
+    ctx.fillStyle = C.sand;
+    ctx.beginPath(); ctx.ellipse(cx, cy + 14, 15, 4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#1d2740'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(cx, cy - 6); ctx.lineTo(cx + 2, cy + 14); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - 16, cy - 2); ctx.quadraticCurveTo(cx, cy - 24, cx + 16, cy - 2); ctx.closePath();
+    ctx.fillStyle = col; ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.moveTo(cx - 3, cy - 2); ctx.quadraticCurveTo(cx, cy - 15, cx + 3, cy - 2); ctx.closePath(); ctx.fill();
+  }
+}
+
+// ゴール：人生でなすべきこと
+function drawGoal(){
+  const gx = LEVEL_LEN;
+  if (gx > camX + W + 260 || gx < camX - 400) return;
+  // hill
+  ctx.fillStyle = C.hill;
+  ctx.beginPath(); ctx.moveTo(gx - 220, GROUND);
+  ctx.quadraticCurveTo(gx + 60, GROUND - 170, gx + 340, GROUND); ctx.closePath(); ctx.fill();
+  // glow
+  const pulse = 0.5 + Math.sin(elapsed * 2) * 0.15;
+  const glow = ctx.createRadialGradient(gx + 60, GROUND - 210, 4, gx + 60, GROUND - 210, 110);
+  glow.addColorStop(0, C.sand); glow.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.globalAlpha = pulse; ctx.fillStyle = glow;
+  ctx.fillRect(gx - 60, GROUND - 330, 240, 240);
+  ctx.globalAlpha = 1;
+  // pole + flag
+  ctx.fillStyle = C.ink;
+  ctx.fillRect(gx + 58, GROUND - 260, 5, 260);
+  const wave = Math.sin(elapsed * 4) * 4;
+  ctx.fillStyle = C.sand;
+  ctx.beginPath();
+  ctx.moveTo(gx + 63, GROUND - 258);
+  ctx.quadraticCurveTo(gx + 100, GROUND - 252 + wave, gx + 140, GROUND - 256);
+  ctx.lineTo(gx + 140, GROUND - 200);
+  ctx.quadraticCurveTo(gx + 100, GROUND - 196 + wave, gx + 63, GROUND - 202);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 2; ctx.stroke();
+  ctx.font = `${F(26)}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#1d2740'; ctx.fillText('夢', gx + 101, GROUND - 228);
+  // sign
+  const t1 = '人生で', t2 = 'なすべきこと';
+  const fs = F(17);
+  const sw = measure(t2, fs) + 24, sh = fs * 2 + 20;
+  const sx = gx - 40 - sw / 2, sy = GROUND - sh - 30;
+  ctx.fillStyle = C.ink; ctx.fillRect(sx + sw / 2 - 3, sy + sh, 6, 30);
+  rr(sx, sy, sw, sh, 6); ctx.fillStyle = C.paper; ctx.fill();
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 2; ctx.stroke();
+  ctx.font = `${fs}px ${FONT}`; ctx.fillStyle = '#1d2740';
+  ctx.fillText(t1, sx + sw / 2, sy + 10 + fs / 2);
+  ctx.fillText(t2, sx + sw / 2, sy + 10 + fs * 1.5 + 2);
+}
+
+function bubble(o){
+  const x = o.x, y = o.y;
+  const alpha = o.hit ? 0.35 : 1;
+  ctx.globalAlpha = alpha;
+  ctx.font = `${o.fs}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if (o.kind === 'walker'){
+    const bh = o.bh;
+    const s = Math.sin(elapsed * 10 + o.ph) * 5;
+    ctx.strokeStyle = C.ink; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x + o.w * 0.35, y + bh); ctx.lineTo(x + o.w * 0.35 + s, y + o.h);
+    ctx.moveTo(x + o.w * 0.65, y + bh); ctx.lineTo(x + o.w * 0.65 - s, y + o.h);
+    ctx.stroke();
+    rr(x, y, o.w, bh, 8);
+    ctx.fillStyle = C.bubble; ctx.fill();
+    ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = C['bubble-ink']; ctx.fillText(o.t, x + o.w / 2, y + bh / 2 + 1);
+  } else if (o.kind === 'flyer'){
+    const same = o.t.startsWith('同じ質問');
+    rr(x, y, o.w, o.h, 14);
+    ctx.fillStyle = C.bubble; ctx.fill();
+    ctx.strokeStyle = same ? C.danger : C.ink; ctx.lineWidth = same ? 3 : 2; ctx.stroke();
+    const tx = o.back ? x + 10 : x + o.w - 22;
+    ctx.beginPath();
+    ctx.moveTo(tx, y + o.h - 1); ctx.lineTo(tx + 8, y + o.h + 10); ctx.lineTo(tx + 13, y + o.h - 1);
+    ctx.fillStyle = C.bubble; ctx.fill(); ctx.stroke();
+    ctx.fillStyle = same ? C.danger : C['bubble-ink']; ctx.fillText(o.t, x + o.w / 2, y + o.h / 2 + 1);
+  } else {
+    if (!o.landed){
+      const dist = Math.max(0, GROUND - (o.y + o.h));
+      ctx.globalAlpha = Math.max(0.15, 0.55 - dist / 900) * alpha;
+      ctx.fillStyle = C.ink;
+      ctx.beginPath(); ctx.ellipse(o.x + o.w / 2, GROUND + 2, o.w / 2, 5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = alpha;
+    }
+    ctx.fillStyle = C.paper; ctx.fillRect(x, y, o.w, o.h);
+    ctx.strokeStyle = C.ink; ctx.lineWidth = 2; ctx.strokeRect(x, y, o.w, o.h);
+    ctx.beginPath(); ctx.moveTo(x + o.w - 12, y); ctx.lineTo(x + o.w, y + 12); ctx.stroke();
+    ctx.fillStyle = C['bubble-ink']; ctx.fillText(o.t, x + o.w / 2, y + o.h / 2 + 1);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawPlayer(){
+  const x = p.x, y = p.y, cx = x + p.w / 2;
+  if (fx.ghost > 0) ctx.globalAlpha = 0.4;
+  else if (p.inv > 0 && Math.floor(p.inv * 18) % 2 === 0) ctx.globalAlpha = 0.45;
+  if (fx.dash > 0){
+    ctx.save(); ctx.globalAlpha = 0.6; ctx.strokeStyle = C.sand; ctx.lineWidth = 3;
+    ctx.beginPath();
+    for (let i = 0; i < 3; i++){
+      const ly = y + 14 + i * 14, lx = x - 10 - ((elapsed * 300 + i * 40) % 40);
+      ctx.moveTo(lx, ly); ctx.lineTo(lx - 28, ly);
+    }
+    ctx.stroke(); ctx.restore();
+  }
+  if (fx.brk > 0){
+    ctx.save(); ctx.globalAlpha = 0.35 + Math.sin(elapsed * 8) * 0.15; ctx.strokeStyle = C.danger; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(cx, y + p.h / 2, 26, 36, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+  }
+  const wob = p.inv > 0.7 ? Math.sin(elapsed * 60) * 2 : 0;
+
+  const hw = 24, hh = 28, hy = y;
+  const top = hy + 3, mid = hy + hh / 2, bot = hy + hh - 3;
+  const ratio = Math.max(0, sand) / 100;
+  ctx.save(); ctx.translate(wob, 0);
+  const outline = () => {
+    ctx.beginPath();
+    ctx.moveTo(cx - hw / 2, top); ctx.lineTo(cx + hw / 2, top); ctx.lineTo(cx + 2, mid);
+    ctx.lineTo(cx + hw / 2, bot); ctx.lineTo(cx - hw / 2, bot); ctx.lineTo(cx - 2, mid); ctx.closePath();
+  };
+  outline(); ctx.fillStyle = C.glass; ctx.fill();
+  const ch = mid - top, th = ch * ratio;
+  if (th > 0.4){
+    const half = (hw / 2) * (th / ch);
+    ctx.beginPath(); ctx.moveTo(cx - half, mid - th); ctx.lineTo(cx + half, mid - th); ctx.lineTo(cx + 1.5, mid); ctx.lineTo(cx - 1.5, mid); ctx.closePath();
+    ctx.fillStyle = C.sand; ctx.fill();
+  }
+  const bh = (bot - mid) * (1 - ratio);
+  if (bh > 0.4){
+    const halfTop = (hw / 2) * (1 - bh / (bot - mid));
+    ctx.beginPath(); ctx.moveTo(cx - halfTop, bot - bh); ctx.lineTo(cx + halfTop, bot - bh); ctx.lineTo(cx + hw / 2, bot); ctx.lineTo(cx - hw / 2, bot); ctx.closePath();
+    ctx.fillStyle = C['sand-dark']; ctx.fill();
+  }
+  if (ratio > 0){
+    ctx.strokeStyle = C.sand; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(cx, mid); ctx.lineTo(cx, bot - bh); ctx.stroke();
+  }
+  outline(); ctx.strokeStyle = C.ink; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = C.ink;
+  ctx.fillRect(cx - hw / 2 - 3, hy, hw + 6, 3);
+  ctx.fillRect(cx - hw / 2 - 3, hy + hh - 3, hw + 6, 3);
+  ctx.restore();
+
+  const ty = y + hh + 1;
+  const moving = p.vx !== 0 && p.on;
+  const sw = p.on ? (moving ? Math.sin(runT) : 0) : 0.7;
+  const f = p.face;
+  const hipY = ty + 16, footY = y + p.h - 2;
+  const l1 = cx - 3 + sw * 7, l2 = cx + 3 - sw * 7;
+  // スラックス
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = C.suit; ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(cx - 3, hipY); ctx.lineTo(l1, footY);
+  ctx.moveTo(cx + 3, hipY); ctx.lineTo(l2, footY);
+  ctx.stroke();
+  // 革靴
+  ctx.fillStyle = '#15161c';
+  for (const lx of [l1, l2]){ rr(f > 0 ? lx - 3 : lx - 7, footY - 2, 10, 5, 2); ctx.fill(); }
+  // ジャケット
+  rr(cx - 10, ty, 20, 19, 4);
+  ctx.fillStyle = C.suit; ctx.fill();
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 1.5; ctx.stroke();
+  // 白シャツとネクタイ
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath(); ctx.moveTo(cx - 5, ty + 0.5); ctx.lineTo(cx + 5, ty + 0.5); ctx.lineTo(cx, ty + 11); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = C.tie;
+  ctx.beginPath(); ctx.moveTo(cx - 1.8, ty + 1); ctx.lineTo(cx + 1.8, ty + 1); ctx.lineTo(cx + 2.3, ty + 9); ctx.lineTo(cx, ty + 12); ctx.lineTo(cx - 2.3, ty + 9); ctx.closePath(); ctx.fill();
+  // 襟とボタン
+  ctx.strokeStyle = '#0e1426'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx - 5, ty + 0.5); ctx.lineTo(cx - 1, ty + 12); ctx.moveTo(cx + 5, ty + 0.5); ctx.lineTo(cx + 1, ty + 12); ctx.stroke();
+  ctx.fillStyle = '#0e1426'; ctx.beginPath(); ctx.arc(cx, ty + 15, 1.3, 0, Math.PI * 2); ctx.fill();
+  // 胸の社員証
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(f > 0 ? cx + 4 : cx - 8, ty + 7, 4, 5);
+  // スーツの袖と手
+  const a1 = [cx - 11 - sw * 5, ty + 14], a2 = [cx + 11 + sw * 5, ty + 14];
+  ctx.strokeStyle = C.suit; ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.moveTo(cx - 8, ty + 3); ctx.lineTo(a1[0], a1[1]); ctx.moveTo(cx + 8, ty + 3); ctx.lineTo(a2[0], a2[1]); ctx.stroke();
+  ctx.fillStyle = '#f1c9a5';
+  for (const a of [a1, a2]){ ctx.beginPath(); ctx.arc(a[0], a[1] + 2, 2.6, 0, Math.PI * 2); ctx.fill(); }
+  // ビジネスバッグ
+  const hand = f > 0 ? a2 : a1;
+  ctx.strokeStyle = '#3b2412'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(hand[0], hand[1] + 4, 3, Math.PI, 0); ctx.stroke();
+  rr(hand[0] - 7, hand[1] + 4, 14, 9, 2);
+  ctx.fillStyle = '#7a4a24'; ctx.fill(); ctx.strokeStyle = C.ink; ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
+const WALL_WORDS = ['同じ質問', 'さっきの件ですが', '？？？', '同じ質問', 'もう一度だけ', '確認ですが'];
+function drawWall(){
+  const wx = wall.x;
+  const left = camX - 20;
+  if (wx < left) return;
+  ctx.globalAlpha = 0.92;
+  ctx.fillStyle = C.wall;
+  ctx.fillRect(left, 0, wx - left, GROUND);
+  ctx.globalAlpha = 1;
+  ctx.beginPath(); ctx.moveTo(wx, 0);
+  for (let yy = 0; yy <= GROUND; yy += 24){ ctx.lineTo(wx + 14 + Math.sin(elapsed * 6 + yy) * 6, yy + 12); ctx.lineTo(wx, yy + 24); }
+  ctx.lineTo(wx, GROUND); ctx.closePath(); ctx.fill();
+  const fs = F(16);
+  const bh = fs + 12, step = bh + 14;
+  let i = 0;
+  for (let by0 = 14; by0 < GROUND - bh; by0 += step, i++){
+    const word = WALL_WORDS[i % WALL_WORDS.length];
+    const w = measure(word, fs) + 18;
+    const by = by0 + Math.sin(elapsed * 3 + i) * 4;
+    const bx = wx - w - 6 + Math.sin(elapsed * 2 + i * 1.7) * 12;
+    if (bx + w < left) continue;
+    rr(bx, by, w, bh, bh / 2);
+    ctx.fillStyle = C.bubble; ctx.fill();
+    ctx.strokeStyle = C.danger; ctx.lineWidth = 2; ctx.stroke();
+    ctx.font = `${fs}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = C.danger; ctx.fillText(word, bx + w / 2, by + bh / 2 + 1);
+  }
+}
+
+function drawParts(){
+  for (const q of parts){
+    ctx.globalAlpha = Math.max(0, Math.min(1, q.life * 1.5));
+    ctx.fillStyle = q.color; ctx.fillRect(q.x - 3, q.y - 3, 6, 6);
+  }
+  ctx.globalAlpha = 1;
+}
+function drawPops(){
+  for (const pp of pops){
+    ctx.globalAlpha = Math.min(1, pp.life * 1.5);
+    const fs = F(pp.css);
+    const tw = measure(pp.text, fs);
+    const x = Math.max(camX + tw / 2 + 6, Math.min(camX + W - tw / 2 - 6, pp.x));
+    label(pp.text, x, pp.y, pp.css, pp.color);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawHud(){
+  const pad = 10;
+  const fs = F(16);
+  // progress toward the dream
+  ctx.font = `${fs}px ${FONT}`;
+  const goalW = measure('夢', fs);
+  const px = pad, pw = W - pad * 2 - goalW - 10, py = 10;
+  ctx.globalAlpha = 0.3; ctx.fillStyle = C.ink; ctx.fillRect(px, py, pw, 6); ctx.globalAlpha = 1;
+  const pr = Math.min(1, p.x / LEVEL_LEN);
+  const wr = Math.max(0, Math.min(1, wall.x / LEVEL_LEN));
+  ctx.fillStyle = C.danger; ctx.fillRect(px, py, pw * wr, 6);
+  ctx.fillStyle = C.sand; ctx.beginPath(); ctx.arc(px + pw * pr, py + 3, 7, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = C.ink;
+  ctx.fillText('夢', px + pw + 10, py + 4);
+
+  // sand meter
+  const hy = 24, hh = fs + 16;
+  const lab = '命の砂';
+  const lw = measure(lab, fs);
+  const barW = Math.max(90, Math.min(170, W * 0.22));
+  const pctW = measure('100%', fs);
+  const panelW = 14 + 18 + 8 + lw + 10 + barW + 10 + pctW + 12;
+  rr(pad, hy, panelW, hh, 8);
+  ctx.globalAlpha = 0.92; ctx.fillStyle = C.hud; ctx.fill(); ctx.globalAlpha = 1;
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 2; ctx.stroke();
+  drawMiniGlass(pad + 18, hy + hh / 2, 7, C.sand);
+  ctx.fillStyle = C.ink; ctx.textAlign = 'left';
+  ctx.fillText(lab, pad + 32, hy + hh / 2 + 1);
+  const ratio = Math.max(0, sand) / 100;
+  const low = ratio < 0.25 && Math.floor(elapsed * 4) % 2 === 0;
+  const bx = pad + 32 + lw + 10, by = hy + hh / 2 - 8;
+  ctx.fillStyle = C.glass; ctx.fillRect(bx, by, barW, 16);
+  ctx.fillStyle = low ? C.danger : C.sand; ctx.fillRect(bx, by, barW * ratio, 16);
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 1.5; ctx.strokeRect(bx, by, barW, 16);
+  ctx.fillStyle = C.ink; ctx.fillText(`${Math.ceil(sand)}%`, bx + barW + 10, hy + hh / 2 + 1);
+
+  // timer
+  label(`${elapsed.toFixed(1)}秒`, W - pad, hy + hh / 2, 16, C.ink, 'right');
+
+  // active powers
+  const chips = [];
+  if (fx.brk > 0) chips.push([`論破 ×${fx.brk}`, C.danger]);
+  if (fx.ghost > 0) chips.push([`すり抜け ${fx.ghost.toFixed(1)}秒`, C.ink]);
+  if (fx.dash > 0) chips.push([`ダッシュ ${fx.dash.toFixed(1)}秒`, C['sand-dark']]);
+  let cx0 = pad;
+  const cy0 = hy + hh + 6, chH = fs + 10;
+  for (const [txt, col] of chips){
+    const cw = measure(txt, fs) + 18;
+    rr(cx0, cy0, cw, chH, chH / 2);
+    ctx.globalAlpha = 0.92; ctx.fillStyle = C.hud; ctx.fill(); ctx.globalAlpha = 1;
+    ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke();
+    ctx.font = `${fs}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = col; ctx.fillText(txt, cx0 + cw / 2, cy0 + chH / 2 + 1);
+    cx0 += cw + 6;
+  }
+  const warnY = hy + hh + (chips.length ? chH + 6 : 0) + F(20);
+  if (state === 'play' && p.x - wall.x < 190 && Math.floor(elapsed * 5) % 2 === 0){
+    label('背後に「同じ質問」が接近中！', W / 2, warnY, 20, C.danger);
+  }
+}
+
+function draw(){
+  ctx.save();
+  if (shake > 0) ctx.translate((Math.random() - 0.5) * 48 * shake, (Math.random() - 0.5) * 32 * shake);
+  drawBg();
+  ctx.save();
+  ctx.translate(-camX, 0);
+  drawGoal();
+  drawGround();
+  drawPlats();
+  drawPicks();
+  for (const o of obs) if (!o.dead) bubble(o);
+  drawPlayer();
+  drawWall();
+  drawParts();
+  drawPops();
+  ctx.restore();
+  drawHud();
+  ctx.restore();
+}
+
+// ---------- screens ----------
+const CLEAR_MSGS = [
+  (t, s) => `あなたはついに、人生でなすべきことを成し遂げました。残りの砂は${s}%。……で、次は何を成しますか？　砂時計は止まってくれません。`,
+  () => '頂上に立つと、遠くに次の「なすべきこと」が見えました。どうやら、山ではなく山脈だったようです。',
+  () => '夢を叶えました。叶えた瞬間から、それは「現在の業務」と呼ばれるようになりました。',
+  () => '無駄をすべて避けて夢にたどり着きました。振り返ると、避けてきた無駄の中に、けっこう楽しかったものも混じっていました。',
+  t => `なすべきことを成しました。所要${t}秒。人類の歴史から見れば、だいたい誤差です。`,
+  () => '偉業を成し遂げたあなたに、最初に届いたメッセージは「おめでとう！ところで、さっきの件ですが」でした。',
+  () => 'あなたの偉業は、明日の朝礼で30秒だけ紹介されます。',
+];
+const OVER_MSGS = [
+  'やりたかったことリストは、未読のまま全員CCで共有されました。',
+  '弔辞は「念のため」3回読み上げられる予定です。',
+  '最後の言葉は「その件、持ち帰って検討します」でした。',
+  'あなたの夢は「前例がない」という理由で不採用になりました。',
+  '残された砂時計には「いつかやる」と書いた付箋が貼ってありました。',
+  'あなたが倒れたあとも、同じ質問は続いています。',
+];
+function clearRank(s){
+  if (s >= 70) return '称号：夢の錬金術師';
+  if (s >= 40) return '称号：遅咲きの達成者';
+  return '称号：滑り込みの人生';
+}
+function overRank(){
+  if (hits >= 10) return '称号：会議に愛されし者';
+  if (hits >= 5) return '称号：断れない人';
+  return '称号：時間に溶けた人';
+}
+function stats(){
+  return `<div class="stats">
+    <span>プレイ時間 <b>${elapsed.toFixed(1)}秒</b></span>
+    <span>残りの砂 <b>${Math.max(0, Math.round(sand))}%</b></span>
+    <span>浪費した回数 <b>${hits}回</b></span>
+    <span>避けた無駄 <b>${dodged}個</b></span>
+    <span>退治した無駄 <b>${destroyed}個</b></span>
+  </div>`;
+}
+function showOv(html){
+  ov.innerHTML = `<div class="box">${html}</div>`;
+  ov.hidden = false;
+  ov.scrollTop = 0;
+  const b = ov.querySelector('.go');
+  if (b){ b.addEventListener('click', start); setTimeout(() => b.focus({ preventScroll:true }), 50); }
+}
+function titleScreen(){
+  showOv(`
+    <div class="big-glass" aria-hidden="true">⏳</div>
+    <h2>命の砂時計</h2>
+    <p class="lead">あなたの頭は砂時計。無駄なものに触れるたび、砂がこぼれます。<br>背後から迫る「同じ質問」をかわしながら、砂が尽きる前に「人生でなすべきこと」までたどり着いてください。</p>
+    <dl class="items">
+      <dt>上から踏む</dt><dd>無駄を退治できる</dd>
+      <dt>結論から言うと</dt><dd>ぶつかった無駄を1回だけ論破</dd>
+      <dt>それメールでよくない？</dt><dd>5秒間すり抜け</dd>
+      <dt>定時退社</dt><dd>5秒間ダッシュ</dd>
+      <dt>有給休暇</dt><dd>砂が回復＋「同じ質問」を押し戻す</dd>
+    </dl>
+    <div class="actions"><button class="go">砂時計をひっくり返す</button></div>`);
+}
+function start(){
+  fit();
+  reset();
+  keys.left = keys.right = false; jumpQueued = false;
+  ov.hidden = true;
+  state = 'play';
+}
+function gameOver(cause){
+  state = 'over';
+  showOv(`
+    <h2>砂、尽きました</h2>
+    <p class="rank">${overRank()}</p>
+    <p class="cause">最後の一粒は「${cause}」に消えました。</p>
+    <p class="msg">${pick(OVER_MSGS)}</p>
+    ${stats()}
+    <div class="actions"><button class="go">もう一度、砂時計をひっくり返す</button></div>`);
+}
+function clear(){
+  state = 'clear';
+  const t = elapsed.toFixed(1), s = Math.max(0, Math.round(sand));
+  showOv(`
+    <h2>なすべきことを成した</h2>
+    <p class="rank">${clearRank(s)}</p>
+    <p class="msg">${pick(CLEAR_MSGS)(t, s)}</p>
+    ${stats()}
+    <p class="fine">※このプレイに使った${t}秒は、返金できません。</p>
+    <div class="actions"><button class="go">もう一度、砂時計をひっくり返す</button></div>`);
+}
+
+// ---------- input ----------
+const isGameKey = k => ['ArrowLeft','ArrowRight','ArrowUp',' ','a','d','w','A','D','W'].includes(k);
+window.addEventListener('keydown', e => {
+  if (state !== 'play') return;
+  if (isGameKey(e.key)) e.preventDefault();
+  if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
+  if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = true;
+  if ((e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') && !e.repeat) jumpQueued = true;
+});
+window.addEventListener('keyup', e => {
+  if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = false;
+  if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = false;
+});
+function hold(id, on, off){
+  const el = document.getElementById(id);
+  const down = e => { e.preventDefault(); el.classList.add('on'); on(); try { el.setPointerCapture(e.pointerId); } catch(_){} };
+  const up = () => { el.classList.remove('on'); off(); };
+  el.addEventListener('pointerdown', down);
+  el.addEventListener('pointerup', up);
+  el.addEventListener('pointercancel', up);
+  el.addEventListener('lostpointercapture', up);
+  el.addEventListener('contextmenu', e => e.preventDefault());
+}
+hold('bL', () => keys.left = true, () => keys.left = false);
+hold('bR', () => keys.right = true, () => keys.right = false);
+hold('bJ', () => { if (state === 'play') jumpQueued = true; }, () => {});
+canvas.addEventListener('pointerdown', e => { if (state === 'play' && e.pointerType !== 'mouse') jumpQueued = true; });
+window.addEventListener('blur', () => { keys.left = keys.right = false; });
+
+// ---------- loop ----------
+let last = performance.now();
+function frame(now){
+  let dt = (now - last) / 1000; last = now;
+  if (dt > 0.05) dt = 0.05;
+  if (state === 'play') update(dt);
+  draw();
+  requestAnimationFrame(frame);
+}
+const ready = document.fonts && document.fonts.load ? document.fonts.load(`16px "DotGothic16"`).catch(() => {}) : Promise.resolve();
+Promise.race([ready, new Promise(r => setTimeout(r, 1500))]).then(() => {
+  fit();
+  titleScreen();
+  requestAnimationFrame(frame);
+});
+})();
+</script>
+</body>
+</html>
