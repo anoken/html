@@ -22,6 +22,9 @@
 | モールス信号変換器 | カタカナを和文モールス信号に変換し、音と光で再生・WAV保存が可能 | [Play](https://anoken.github.io/html/morse_code.html) |
 | 重心テトリス | 重心を意識して積む物理テトリス | [Play](https://anoken.github.io/html/gravity-tetris.html) |
 | からあげレモン戦争 | 相手が振り向かない隙にからあげへレモンを搾る3Dアクションゲーム（Three.js、ベストスコア保存） | [Play](https://anoken.github.io/html/karaage-lemon.html) |
+| 脱❗️会見サバイバル | 記者会見中、記者がメモに目を落としている隙に一枚ずつ脱いでいく3Dタイミングゲーム（全11段階、Three.js 同梱） | [Play](https://anoken.github.io/html/datsu_kaiken.html) |
+| 命の砂時計（アクション） | 頭が砂時計の主人公を操作し、「無駄」を避けながら砂が尽きる前にゴールを目指す横スクロールアクション | [Play](https://anoken.github.io/html/inochi_no_sunadokei_1.html) |
+| 命の砂時計（今日の残り時間） | 起床から就寝までの持ち時間の残りを、砂時計と秒数で表示する時計（起床時刻を保存） | [Play](https://anoken.github.io/html/inochi_no_sunadokei_2.html) |
 | 総理大臣クイズ | 歴代総理大臣66人の顔写真から名前を当てる3択クイズ（10問・毎回出題が変わり難易度が上がる） | [Play](https://anoken.github.io/html/prime-minister-quiz/) |
 | 歴代天皇クイズ | 初代神武天皇から今上天皇まで52人の肖像とヒントから名前を当てる3択クイズ | [Play](https://anoken.github.io/html/emperor-quiz/) |
 | 歴代お札クイズ | 明治以降のお札の肖像になった21人を当てる3択クイズ（人物当て・券種当ての2形式） | [Play](https://anoken.github.io/html/banknote-quiz/) |
@@ -34,8 +37,11 @@ html/
 ├── README.md
 ├── LICENSE
 ├── docs/                          # GitHub Pages 公開ディレクトリ
+│   ├── datsu_kaiken.html          # 脱❗️会見サバイバル
 │   ├── digital-rain.html          # Digital Rain
 │   ├── gravity-tetris.html        # 重心テトリス
+│   ├── inochi_no_sunadokei_1.html # 命の砂時計（アクション）
+│   ├── inochi_no_sunadokei_2.html # 命の砂時計（今日の残り時間）
 │   ├── karaage-lemon.html         # からあげレモン戦争
 │   ├── inverted_pendulum.html     # 倒立振子バランスゲーム
 │   ├── inverted_pendulum_swingup.html # 倒立振子 振り上げ制御
@@ -73,3 +79,4 @@ html/
 - 一部アプリはスマートフォンの加速度センサーを利用（HTTPS環境が必要）
 - 一部アプリはマイクへのアクセスが必要
 - からあげレモン戦争は Three.js（r128）を CDN から読み込むため、ネット接続が必要
+- 脱❗️会見サバイバルは Three.js（r128）をファイルに同梱しているため、CDN への接続は不要
